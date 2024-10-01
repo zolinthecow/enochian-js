@@ -1,16 +1,35 @@
-class ProgramState {
+import type { GenerateReqInput } from './api.js';
+import { GenerateRespSchema } from './api.js';
+
+export default class ProgramState {
     private _prompt = '';
     private _answers: { [key: string]: string } = {};
-    private _current_model = {
-        url: '',
-        name: '',
-    };
+    private _current_model_endpoint = '';
 
-    private async _sendGenRequest(): Promise<string> {
-        // TODO: Make this actually work
-        // @ts-expect-error I know this doesn't work yet
-        const resp = await fetch(this._current_model.url);
-        return await resp.json();
+    private async _sendGenRequest(_input?: GenerateReqInput): Promise<string> {
+        let input: GenerateReqInput;
+        if (_input) {
+            input = {
+                ..._input,
+                text: this._prompt,
+            };
+        } else {
+            input = {
+                text: this._prompt,
+                sampling_params: {},
+            };
+        }
+
+        const options = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(input),
+        };
+        const resp = await fetch(this._current_model_endpoint, options);
+        const generateResp = GenerateRespSchema.parse(await resp.json());
+        return generateResp.text;
     }
 
     async system(
@@ -58,23 +77,28 @@ class ProgramState {
         return this._prompt;
     }
 
-    setModel(url: string, name: string): ProgramState {
+    setModel(url: string): ProgramState {
         // TODO: This should get the model(s) from the URL
-        this._current_model = {
-            url,
-            name,
-        };
+        this._current_model_endpoint = url;
         return this;
     }
 
-    add(prompt: string): ProgramState {
-        this._prompt += prompt;
+    async add(prompt: Promise<string> | string): Promise<ProgramState> {
+        if (prompt instanceof Promise) {
+            this._prompt += await prompt;
+        } else {
+            this._prompt += prompt;
+        }
         return this;
     }
 
-    async gen(answerKey: string): Promise<string> {
-        const ans = await this._sendGenRequest();
+    async gen(answerKey: string, input?: GenerateReqInput): Promise<string> {
+        const ans = await this._sendGenRequest(input);
         this._answers[answerKey] = ans;
         return ans;
+    }
+
+    get(key: string): string | undefined {
+        return this._answers[key];
     }
 }

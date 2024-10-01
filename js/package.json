@@ -3,6 +3,7 @@
     "version": "1.0.0",
     "description": "",
     "main": "index.js",
+    "type": "module",
     "scripts": {
         "prepare": "cd .. && husky js/.husky",
         "test": "echo \"Error: no test specified\" && exit 1"
@@ -12,6 +13,8 @@
     "license": "ISC",
     "devDependencies": {
         "@biomejs/biome": "^1.9.2",
+        "@swc-node/register": "^1.10.9",
+        "@types/node": "^22.7.4",
         "husky": "^9.1.6",
         "lint-staged": "^15.2.10"
     },
@@ -19,5 +22,8 @@
         "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}": [
             "biome check --write --no-errors-on-unmatched"
         ]
+    },
+    "dependencies": {
+        "zod": "^3.23.8"
     }
 }

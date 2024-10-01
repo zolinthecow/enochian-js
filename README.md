@@ -16,12 +16,12 @@ Then, you can use normal JS control flow to "program" your LLM.
 
 ```ts
 async function multiTurnQuestion(s: ProgramState, question1: string, question2: string): Promise<[string, string]> {
-    s.setModel('http://localhost:8000', 'meta-llama/Llama-3.1-8B-Instruct')
-    await s.system`You are a helpful assistant.`;
-    await s.user`${question1}`;
-    await s.assistant`${s.gen('answer1')}`;
-    await s.user`${question2}`;
-    await s.assistant`${s.gen('answer2')}`;
+    s.setModel('http://localhost:8000');
+    await s.add(s.system`You are a helpful assistant.`);
+    await s.add(s.user`${question1}`);
+    await s.add(s.assistant`${s.gen('answer1')}`);
+    await s.add(s.user`${question2}`);
+    await s.add(s.assistant`${s.gen('answer2')}`);
     return [s.get('answer1'), s.get('answer2')];
 }
 
