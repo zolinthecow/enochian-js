@@ -1,10 +1,12 @@
 import type { GenerateReqInput } from './api.js';
 import { GenerateRespSchema } from './api.js';
+import { ChatTemplateGroup } from './chatTemplate.js';
 
 export default class ProgramState {
     private _prompt = '';
     private _answers: { [key: string]: string } = {};
     private _current_model_endpoint = '';
+    private _chatTemplateGroup = new ChatTemplateGroup();
 
     private async _sendGenRequest(_input?: GenerateReqInput): Promise<string> {
         let input: GenerateReqInput;
@@ -27,6 +29,7 @@ export default class ProgramState {
             },
             body: JSON.stringify(input),
         };
+        console.log('OPTS:', options, '\n');
         const resp = await fetch(
             `${this._current_model_endpoint}/generate`,
             options,
@@ -41,8 +44,17 @@ export default class ProgramState {
         ...values: (() => Promise<string> | string)[]
     ): Promise<string> {
         // Applies system chat template to a string;
-        // TODO: Apply system templat before and after this
-        return await this._processStringTemplate(strings, ...values);
+        // TODO: Apply system template before and after this
+        const template = this._chatTemplateGroup.match('llama-3 instruct');
+        const system_prefix_suffix = template.get_prefix_and_suffix(
+            'system',
+            [],
+        );
+        this._prompt += system_prefix_suffix[0];
+        return (
+            (await this._processStringTemplate(strings, ...values)) +
+            system_prefix_suffix[1]
+        );
     }
 
     async user(
@@ -50,8 +62,14 @@ export default class ProgramState {
         ...values: (() => Promise<string> | string)[]
     ): Promise<string> {
         // Applies user chat template to a string;
-        // TODO: Apply user templat before and after this
-        return await this._processStringTemplate(strings, ...values);
+        // TODO: Apply user template before and after this
+        const template = this._chatTemplateGroup.match('llama-3 instruct');
+        const user_prefix_suffix = template.get_prefix_and_suffix('user', []);
+        this._prompt += user_prefix_suffix[0];
+        return (
+            (await this._processStringTemplate(strings, ...values)) +
+            user_prefix_suffix[1]
+        );
     }
 
     async assistant(
@@ -60,7 +78,16 @@ export default class ProgramState {
     ): Promise<string> {
         // Applies assistant chat template to a string;
         // TODO: Apply assistant templat before and after this
-        return await this._processStringTemplate(strings, ...values);
+        const template = this._chatTemplateGroup.match('llama-3 instruct');
+        const assistant_prefix_suffix = template.get_prefix_and_suffix(
+            'assistant',
+            [],
+        );
+        this._prompt += assistant_prefix_suffix[0];
+        return (
+            (await this._processStringTemplate(strings, ...values)) +
+            assistant_prefix_suffix[1]
+        );
     }
 
     private async _processStringTemplate(
