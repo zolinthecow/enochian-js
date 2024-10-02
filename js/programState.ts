@@ -9,14 +9,14 @@ export default class ProgramState {
     private async _sendGenRequest(_input?: GenerateReqInput): Promise<string> {
         let input: GenerateReqInput;
         if (_input) {
-            input = {
-                ..._input,
-                text: this._prompt,
-            };
+            input = _input;
         } else {
             input = {
                 text: this._prompt,
-                sampling_params: {},
+                sampling_params: {
+                    max_new_tokens: 16,
+                    temperature: 0,
+                },
             };
         }
 
@@ -27,14 +27,18 @@ export default class ProgramState {
             },
             body: JSON.stringify(input),
         };
-        const resp = await fetch(this._current_model_endpoint, options);
-        const generateResp = GenerateRespSchema.parse(await resp.json());
+        const resp = await fetch(
+            `${this._current_model_endpoint}/generate`,
+            options,
+        );
+        const json = await resp.json();
+        const generateResp = GenerateRespSchema.parse(json);
         return generateResp.text;
     }
 
     async system(
         strings: TemplateStringsArray,
-        ...values: (Promise<string> | string)[]
+        ...values: (() => Promise<string> | string)[]
     ): Promise<string> {
         // Applies system chat template to a string;
         // TODO: Apply system templat before and after this
@@ -43,7 +47,7 @@ export default class ProgramState {
 
     async user(
         strings: TemplateStringsArray,
-        ...values: (Promise<string> | string)[]
+        ...values: (() => Promise<string> | string)[]
     ): Promise<string> {
         // Applies user chat template to a string;
         // TODO: Apply user templat before and after this
@@ -52,7 +56,7 @@ export default class ProgramState {
 
     async assistant(
         strings: TemplateStringsArray,
-        ...values: (Promise<string> | string)[]
+        ...values: (() => Promise<string> | string)[]
     ): Promise<string> {
         // Applies assistant chat template to a string;
         // TODO: Apply assistant templat before and after this
@@ -61,20 +65,23 @@ export default class ProgramState {
 
     private async _processStringTemplate(
         strings: TemplateStringsArray,
-        ...values: (Promise<string> | string)[]
+        ...values: ((prompt: string) => Promise<string> | string)[]
     ): Promise<string> {
+        let curPrompt = '';
         for (let i = 0; i < strings.length; i++) {
-            this._prompt += strings[i];
+            curPrompt += strings[i];
             if (i < values.length) {
-                if (values[i] instanceof Promise) {
-                    const resolvedValue = await values[i];
-                    this._prompt += resolvedValue;
+                if (values[i] instanceof Function) {
+                    const gen = values[i];
+                    if (!gen) continue;
+                    const resolvedValue = await gen(this._prompt + curPrompt);
+                    curPrompt += resolvedValue;
                 } else {
-                    this._prompt += values[i];
+                    curPrompt += values[i];
                 }
             }
         }
-        return this._prompt;
+        return curPrompt;
     }
 
     setModel(url: string): ProgramState {
@@ -92,10 +99,21 @@ export default class ProgramState {
         return this;
     }
 
-    async gen(answerKey: string, input?: GenerateReqInput): Promise<string> {
-        const ans = await this._sendGenRequest(input);
-        this._answers[answerKey] = ans;
-        return ans;
+    gen(answerKey: string): () => Promise<string> {
+        return async (prompt?: string): Promise<string> => {
+            // TEMP
+            const input: GenerateReqInput = {
+                text: prompt ? prompt : this._prompt,
+                sampling_params: {
+                    max_new_tokens: 16,
+                    temperature: 0,
+                },
+            };
+
+            const ans = await this._sendGenRequest(input);
+            this._answers[answerKey] = ans;
+            return ans;
+        };
     }
 
     get(key: string): string | undefined {
