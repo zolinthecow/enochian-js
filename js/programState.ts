@@ -2,26 +2,15 @@ import type { GenerateReqInput } from './api.js';
 import { GenerateRespSchema } from './api.js';
 import { ChatTemplateGroup } from './chatTemplate.js';
 
+type Message = { role: 'user' | 'assistant' | 'system'; content: string };
+
 export default class ProgramState {
-    private _prompt = '';
+    private _messages: Array<Message> = [];
     private _answers: { [key: string]: string } = {};
     private _current_model_endpoint = '';
     private _chatTemplateGroup = new ChatTemplateGroup();
 
-    private async _sendGenRequest(_input?: GenerateReqInput): Promise<string> {
-        let input: GenerateReqInput;
-        if (_input) {
-            input = _input;
-        } else {
-            input = {
-                text: this._prompt,
-                sampling_params: {
-                    max_new_tokens: 16,
-                    temperature: 0,
-                },
-            };
-        }
-
+    private async _sendGenRequest(input: GenerateReqInput): Promise<string> {
         const options = {
             method: 'POST',
             headers: {
@@ -41,70 +30,72 @@ export default class ProgramState {
 
     async system(
         strings: TemplateStringsArray,
-        ...values: (() => Promise<string> | string)[]
-    ): Promise<string> {
-        // Applies system chat template to a string;
-        // TODO: Apply system template before and after this
-        const template = this._chatTemplateGroup.match('llama-3 instruct');
-        const system_prefix_suffix = template.get_prefix_and_suffix(
-            'system',
-            [],
-        );
-        this._prompt += system_prefix_suffix[0];
-        return (
-            (await this._processStringTemplate(strings, ...values)) +
-            system_prefix_suffix[1]
-        );
+        ...values: (ReturnType<typeof this.gen> | string)[]
+    ): Promise<Message> {
+        return {
+            role: 'system',
+            content: await this._processRoleStringTemplate(
+                'system',
+                strings,
+                ...values,
+            ),
+        };
     }
 
     async user(
         strings: TemplateStringsArray,
-        ...values: (() => Promise<string> | string)[]
-    ): Promise<string> {
-        // Applies user chat template to a string;
-        // TODO: Apply user template before and after this
-        const template = this._chatTemplateGroup.match('llama-3 instruct');
-        const user_prefix_suffix = template.get_prefix_and_suffix('user', []);
-        this._prompt += user_prefix_suffix[0];
-        return (
-            (await this._processStringTemplate(strings, ...values)) +
-            user_prefix_suffix[1]
-        );
+        ...values: (ReturnType<typeof this.gen> | string)[]
+    ): Promise<Message> {
+        return {
+            role: 'user',
+            content: await this._processRoleStringTemplate(
+                'user',
+                strings,
+                ...values,
+            ),
+        };
     }
 
     async assistant(
         strings: TemplateStringsArray,
-        ...values: (() => Promise<string> | string)[]
-    ): Promise<string> {
-        // Applies assistant chat template to a string;
-        // TODO: Apply assistant templat before and after this
-        const template = this._chatTemplateGroup.match('llama-3 instruct');
-        const assistant_prefix_suffix = template.get_prefix_and_suffix(
-            'assistant',
-            [],
-        );
-        this._prompt += assistant_prefix_suffix[0];
-        return (
-            (await this._processStringTemplate(strings, ...values)) +
-            assistant_prefix_suffix[1]
-        );
+        ...values: (ReturnType<typeof this.gen> | string)[]
+    ): Promise<Message> {
+        return {
+            role: 'assistant',
+            content: await this._processRoleStringTemplate(
+                'assistant',
+                strings,
+                ...values,
+            ),
+        };
     }
 
-    private async _processStringTemplate(
+    private async _processRoleStringTemplate(
+        role: 'system' | 'user' | 'assistant',
         strings: TemplateStringsArray,
-        ...values: ((prompt: string) => Promise<string> | string)[]
+        ...values: (ReturnType<typeof this.gen> | string)[]
     ): Promise<string> {
+        // TODO: Get model name from URL
+        const template = this._chatTemplateGroup.match('llama-3 instruct');
+        // I'm not sure how we're supposed to use the `hist_messages` param
+        const prefix_suffix = template.get_prefix_and_suffix(
+            role,
+            this._messages,
+        );
         let curPrompt = '';
         for (let i = 0; i < strings.length; i++) {
             curPrompt += strings[i];
             if (i < values.length) {
-                if (values[i] instanceof Function) {
-                    const gen = values[i];
-                    if (!gen) continue;
-                    const resolvedValue = await gen(this._prompt + curPrompt);
-                    curPrompt += resolvedValue;
+                const value = values[i];
+                if (isAsyncFunction(value)) {
+                    // Need to apply the chat template prefix to the cur prompt
+                    const text = `${template.get_prompt(this._messages)}${prefix_suffix[0]}${curPrompt}`;
+                    // For now must be the gen function
+                    const generatedText = await value(text);
+                    // Should trim out the generated end tokens
+                    curPrompt += generatedText.replace(prefix_suffix[1], '');
                 } else {
-                    curPrompt += values[i];
+                    curPrompt += value;
                 }
             }
         }
@@ -117,27 +108,43 @@ export default class ProgramState {
         return this;
     }
 
-    async add(prompt: Promise<string> | string): Promise<ProgramState> {
-        if (prompt instanceof Promise) {
-            this._prompt += await prompt;
+    async add(message: Promise<Message> | Message): Promise<ProgramState> {
+        if (message instanceof Promise) {
+            this._messages.push(await message);
         } else {
-            this._prompt += prompt;
+            this._messages.push(message);
         }
         return this;
     }
 
-    gen(answerKey: string): () => Promise<string> {
-        return async (prompt?: string): Promise<string> => {
-            // TEMP
-            const input: GenerateReqInput = {
-                text: prompt ? prompt : this._prompt,
+    gen(
+        answerKey: string,
+        genInput?: Omit<Partial<GenerateReqInput>, 'text'>,
+    ): (text: string) => Promise<string> {
+        return async (text: string): Promise<string> => {
+            const reqInput: GenerateReqInput = {
+                text,
+                ...genInput,
+                // Default sampling params:
                 sampling_params: {
-                    max_new_tokens: 16,
-                    temperature: 0,
+                    max_new_tokens: 128,
+                    min_new_tokens: 0,
+                    temperature: 1.0,
+                    top_p: 1.0,
+                    top_k: 1 << 30, // Whole vocabulary
+                    min_p: 0.0,
+                    frequency_penalty: 0.0,
+                    presence_penalty: 0.0,
+                    repetition_penalty: 1.0,
+                    ignore_eos: false,
+                    skip_special_tokens: true,
+                    spaces_between_special_tokens: true,
+                    n: 1,
+                    ...genInput?.sampling_params,
                 },
             };
 
-            const ans = await this._sendGenRequest(input);
+            const ans = await this._sendGenRequest(reqInput);
             this._answers[answerKey] = ans;
             return ans;
         };
@@ -146,4 +153,16 @@ export default class ProgramState {
     get(key: string): string | undefined {
         return this._answers[key];
     }
+
+    get_prompt(): string {
+        return this._chatTemplateGroup
+            .get_chat_template('llama-3 instruct')
+            .get_prompt(this._messages);
+    }
+}
+
+function isAsyncFunction(
+    value: unknown,
+): value is (prompt: string) => Promise<string> {
+    return typeof value === 'function';
 }
