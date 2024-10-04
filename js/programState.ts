@@ -1,5 +1,5 @@
 import type { GenerateReqInput } from './api.js';
-import { GenerateRespSchema } from './api.js';
+import { GenerateRespSchema, GetModelInfoSchema } from './api.js';
 import { ChatTemplateGroup } from './chatTemplate.js';
 
 type Message = { role: 'user' | 'assistant' | 'system'; content: string };
@@ -7,7 +7,10 @@ type Message = { role: 'user' | 'assistant' | 'system'; content: string };
 export default class ProgramState {
     private _messages: Array<Message> = [];
     private _answers: { [key: string]: string } = {};
-    private _current_model_endpoint = '';
+    private _current_model = {
+        url: '',
+        path: '',
+    };
     private _chatTemplateGroup = new ChatTemplateGroup();
 
     private async _sendGenRequest(input: GenerateReqInput): Promise<string> {
@@ -20,7 +23,7 @@ export default class ProgramState {
         };
         console.log('OPTS:', options, '\n');
         const resp = await fetch(
-            `${this._current_model_endpoint}/generate`,
+            `${this._current_model.url}/generate`,
             options,
         );
         const json = await resp.json();
@@ -76,7 +79,9 @@ export default class ProgramState {
         ...values: (ReturnType<typeof this.gen> | string)[]
     ): Promise<string> {
         // TODO: Get model name from URL
-        const template = this._chatTemplateGroup.match('llama-3 instruct');
+        const template = this._chatTemplateGroup.match(
+            this._current_model.path,
+        );
         // I'm not sure how we're supposed to use the `hist_messages` param
         const prefix_suffix = template.get_prefix_and_suffix(
             role,
@@ -102,9 +107,15 @@ export default class ProgramState {
         return curPrompt;
     }
 
-    setModel(url: string): ProgramState {
+    async setModel(url: string): Promise<ProgramState> {
         // TODO: This should get the model(s) from the URL
-        this._current_model_endpoint = url;
+        this._current_model.url = url;
+        const resp = await fetch(`${this._current_model.url}/get_model_info`, {
+            method: 'GET',
+        });
+        const json = await resp.json();
+        const modelInfo = GetModelInfoSchema.parse(json);
+        this._current_model.path = modelInfo.model_path;
         return this;
     }
 
@@ -156,7 +167,7 @@ export default class ProgramState {
 
     get_prompt(): string {
         return this._chatTemplateGroup
-            .get_chat_template('llama-3 instruct')
+            .get_chat_template(this._current_model.path)
             .get_prompt(this._messages);
     }
 }

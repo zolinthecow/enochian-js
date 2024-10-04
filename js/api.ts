@@ -112,3 +112,9 @@ export const GenerateRespSchema = z.object({
     index: z.number(),
 });
 export type GenerateResp = z.infer<typeof GenerateRespSchema>;
+
+export const GetModelInfoSchema = z.object({
+    model_path: z.string(),
+    is_generation: z.boolean(),
+});
+export type GetModelInfo = z.infer<typeof GetModelInfoSchema>;
