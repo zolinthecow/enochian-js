@@ -96,26 +96,28 @@ export type SamplingParams = {
     min_new_tokens?: number;
 };
 
-// TODO: This is not complete at all
+export const MetaInfoSchema = z.object({
+    prompt_tokens: z.number(),
+    completion_tokens: z.number(),
+    completion_tokens_wo_jump_forward: z.number(),
+    finish_reason: z.discriminatedUnion('type', [
+        z.object({
+            type: z.literal('length'),
+            length: z.number(),
+        }),
+        z.object({
+            type: z.literal('stop'),
+            // Token ID
+            matched: z.number(),
+        }),
+    ]),
+    id: z.string(),
+});
+export type MetaInfo = z.infer<typeof MetaInfoSchema>;
+
 export const GenerateRespSchema = z.object({
     text: z.string(),
-    meta_info: z.object({
-        prompt_tokens: z.number(),
-        completion_tokens: z.number(),
-        completion_tokens_wo_jump_forward: z.number(),
-        finish_reason: z.discriminatedUnion('type', [
-            z.object({
-                type: z.literal('length'),
-                length: z.number(),
-            }),
-            z.object({
-                type: z.literal('stop'),
-                // Token ID
-                matched: z.number(),
-            }),
-        ]),
-        id: z.string(),
-    }),
+    meta_info: MetaInfoSchema,
     index: z.number(),
 });
 export type GenerateResp = z.infer<typeof GenerateRespSchema>;
