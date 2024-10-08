@@ -27,88 +27,119 @@ export default class ProgramState {
             options,
         );
         const json = await resp.json();
+        console.log(json);
         const generateResp = GenerateRespSchema.parse(json);
         return generateResp.text;
     }
 
-    async system(
-        strings: TemplateStringsArray,
-        ...values: (ReturnType<typeof this.gen> | string)[]
-    ): Promise<Message> {
-        return {
-            role: 'system',
-            content: await this._processRoleStringTemplate(
-                'system',
-                strings,
-                ...values,
-            ),
-        };
+    private _createRoleFunction(role: 'user' | 'assistant' | 'system') {
+        function roleFunction(
+            this: ProgramState,
+            strings: TemplateStringsArray,
+            ...values: string[]
+        ): Message;
+        function roleFunction(
+            this: ProgramState,
+            strings: TemplateStringsArray,
+            ...values: (ReturnType<typeof this.gen> | string)[]
+        ): Promise<Message>;
+        function roleFunction(
+            this: ProgramState,
+            strings: TemplateStringsArray,
+            ...values: string[] | (ReturnType<typeof this.gen> | string)[]
+        ): Message | Promise<Message> {
+            if (values.every((v) => typeof v === 'string')) {
+                return {
+                    role,
+                    content: this._processRoleStringTemplate(
+                        role,
+                        strings,
+                        ...(values as string[]),
+                    ),
+                };
+            } else {
+                return (async () => {
+                    return {
+                        role,
+                        content: await this._processRoleStringTemplate(
+                            role,
+                            strings,
+                            ...values,
+                        ),
+                    };
+                })();
+            }
+        }
+        return roleFunction;
     }
 
-    async user(
-        strings: TemplateStringsArray,
-        ...values: (ReturnType<typeof this.gen> | string)[]
-    ): Promise<Message> {
-        return {
-            role: 'user',
-            content: await this._processRoleStringTemplate(
-                'user',
-                strings,
-                ...values,
-            ),
-        };
-    }
+    user = this._createRoleFunction('user');
+    assistant = this._createRoleFunction('assistant');
+    system = this._createRoleFunction('system');
 
-    async assistant(
+    private _processRoleStringTemplate(
+        role: 'system' | 'user' | 'assistant',
         strings: TemplateStringsArray,
-        ...values: (ReturnType<typeof this.gen> | string)[]
-    ): Promise<Message> {
-        return {
-            role: 'assistant',
-            content: await this._processRoleStringTemplate(
-                'assistant',
-                strings,
-                ...values,
-            ),
-        };
-    }
-
-    private async _processRoleStringTemplate(
+        ...values: string[]
+    ): string;
+    private _processRoleStringTemplate(
         role: 'system' | 'user' | 'assistant',
         strings: TemplateStringsArray,
         ...values: (ReturnType<typeof this.gen> | string)[]
-    ): Promise<string> {
-        // TODO: Get model name from URL
-        const template = this._chatTemplateGroup.match(
-            this._current_model.path,
-        );
-        // I'm not sure how we're supposed to use the `hist_messages` param
-        const prefix_suffix = template.get_prefix_and_suffix(
-            role,
-            this._messages,
-        );
-        let curPrompt = '';
-        for (let i = 0; i < strings.length; i++) {
-            curPrompt += strings[i];
-            if (i < values.length) {
-                const value = values[i];
-                if (isAsyncFunction(value)) {
-                    // Need to apply the chat template prefix to the cur prompt
-                    const text = `${template.get_prompt(this._messages)}${prefix_suffix[0]}${curPrompt}`;
-                    // For now must be the gen function
-                    const generatedText = await value(text);
-                    // Should trim out the generated end tokens
-                    curPrompt += generatedText.replace(prefix_suffix[1], '');
-                } else {
-                    curPrompt += value;
+    ): Promise<string>;
+    private _processRoleStringTemplate(
+        role: 'system' | 'user' | 'assistant',
+        strings: TemplateStringsArray,
+        ...values: string[] | (ReturnType<typeof this.gen> | string)[]
+    ): string | Promise<string> {
+        // This function should only be async if there is an async function inside `values`.
+        if (values.some((v) => isAsyncFunction(v))) {
+            const template = this._chatTemplateGroup.match(
+                this._current_model.path,
+            );
+            // I'm not sure how we're supposed to use the `hist_messages` param
+            const prefix_suffix = template.get_prefix_and_suffix(
+                role,
+                this._messages,
+            );
+
+            const processTemplate = async (): Promise<string> => {
+                let curPrompt = '';
+                for (let i = 0; i < strings.length; i++) {
+                    curPrompt += strings[i];
+                    if (i < values.length) {
+                        const value = values[i];
+                        if (isAsyncFunction(value)) {
+                            // Need to apply the chat template prefix to the cur prompt
+                            const text = `${template.get_prompt(this._messages)}${prefix_suffix[0]}${curPrompt}`;
+                            // For now must be the gen function
+                            const generatedText = await value(text);
+                            // Should trim out the generated end tokens
+                            curPrompt += generatedText.replace(
+                                prefix_suffix[1],
+                                '',
+                            );
+                        } else {
+                            curPrompt += value;
+                        }
+                    }
                 }
-            }
+                return curPrompt;
+            };
+
+            return (async () => {
+                return await processTemplate();
+            })();
+        } else {
+            // If there are no async functions inside the string template then just concat them together
+            return strings.reduce(
+                (acc, str, i) => acc + str + (values[i] || ''),
+                '',
+            );
         }
-        return curPrompt;
     }
 
     async setModel(url: string): Promise<ProgramState> {
-        // TODO: This should get the model(s) from the URL
         this._current_model.url = url;
         const resp = await fetch(`${this._current_model.url}/get_model_info`, {
             method: 'GET',
@@ -119,13 +150,20 @@ export default class ProgramState {
         return this;
     }
 
-    async add(message: Promise<Message> | Message): Promise<ProgramState> {
+    add(message: Message): ProgramState;
+    add(message: Promise<Message>): Promise<ProgramState>;
+    add(
+        message: Message | Promise<Message>,
+    ): ProgramState | Promise<ProgramState> {
         if (message instanceof Promise) {
-            this._messages.push(await message);
+            return (async () => {
+                this._messages.push(await message);
+                return this;
+            })();
         } else {
             this._messages.push(message);
+            return this;
         }
-        return this;
     }
 
     gen(

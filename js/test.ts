@@ -2,9 +2,24 @@ import ProgramState from './programState.js';
 
 (async () => {
     const s = new ProgramState();
-    await s.setModel('http://10.10.0.164:30000');
-    await s.add(s.system`You are a helpful assistant.`);
-    await s.add(s.user`Tell me a story`);
-    await s.add(s.assistant`Once upon a time, ${s.gen('answer')}`);
-    console.log(s.get('answer'));
+
+    async function multiTurnQuestion(
+        s: ProgramState,
+        question1: string,
+        question2: string,
+    ): Promise<[string | undefined, string | undefined]> {
+        await s.setModel('http://localhost:30000');
+        await s
+            .add(s.system`You are a helpful assistant.`)
+            .add(s.user`${question1}`)
+            .add(s.assistant`${s.gen('answer1')}`);
+        await s
+            .add(s.user`${question2}`)
+            .add(s.assistant`No problem! ${s.gen('answer2')}`);
+        return [s.get('answer1'), s.get('answer2')];
+    }
+
+    console.log(
+        await multiTurnQuestion(s, 'Tell me a joke', 'Tell me a better one'),
+    );
 })();

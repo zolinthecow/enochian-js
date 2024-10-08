@@ -103,10 +103,17 @@ export const GenerateRespSchema = z.object({
         prompt_tokens: z.number(),
         completion_tokens: z.number(),
         completion_tokens_wo_jump_forward: z.number(),
-        finish_reason: z.object({
-            type: z.literal('length'),
-            length: z.number(),
-        }),
+        finish_reason: z.discriminatedUnion('type', [
+            z.object({
+                type: z.literal('length'),
+                length: z.number(),
+            }),
+            z.object({
+                type: z.literal('stop'),
+                // Token ID
+                matched: z.number(),
+            }),
+        ]),
         id: z.string(),
     }),
     index: z.number(),

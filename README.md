@@ -20,14 +20,15 @@ const s = new ProgramState()
 
 Then, you can use normal JS control flow to "program" your LLM.
 
+
 ```ts
 async function multiTurnQuestion(s: ProgramState, question1: string, question2: string): Promise<[string, string]> {
     await s.setModel('http://localhost:30000');
-    await s.add(s.system`You are a helpful assistant.`);
-    await s.add(s.user`${question1}`);
-    await s.add(s.assistant`${s.gen('answer1')}`);
-    await s.add(s.user`${question2}`);
-    await s.add(s.assistant`No problem! ${s.gen('answer2')}`);
+    await s.add(s.system`You are a helpful assistant.`)
+        .add(s.user`${question1}`);
+        .add(s.assistant`${s.gen('answer1')}`);
+    await s.add(s.user`${question2}`)
+        .add(s.assistant`No problem! ${s.gen('answer2')}`)
     return [s.get('answer1'), s.get('answer2')];
 }
 
