@@ -1,4 +1,4 @@
-import type { GenerateReqInput } from './api.js';
+import type { GenerateReqInput, GenerateResp, MetaInfo } from './api.js';
 import { GenerateRespSchema, GetModelInfoSchema } from './api.js';
 import { ChatTemplateGroup } from './chatTemplate.js';
 
@@ -6,14 +6,16 @@ type Message = { role: 'user' | 'assistant' | 'system'; content: string };
 
 export default class ProgramState {
     private _messages: Array<Message> = [];
-    private _answers: { [key: string]: string } = {};
+    private _answers: { [key: string]: GenerateResp } = {};
     private _current_model = {
         url: '',
         path: '',
     };
     private _chatTemplateGroup = new ChatTemplateGroup();
 
-    private async _sendGenRequest(input: GenerateReqInput): Promise<string> {
+    private async _sendGenRequest(
+        input: GenerateReqInput,
+    ): Promise<GenerateResp> {
         const options = {
             method: 'POST',
             headers: {
@@ -21,15 +23,13 @@ export default class ProgramState {
             },
             body: JSON.stringify(input),
         };
-        console.log('OPTS:', options, '\n');
         const resp = await fetch(
             `${this._current_model.url}/generate`,
             options,
         );
         const json = await resp.json();
-        console.log(json);
         const generateResp = GenerateRespSchema.parse(json);
-        return generateResp.text;
+        return generateResp;
     }
 
     private _createRoleFunction(role: 'user' | 'assistant' | 'system') {
@@ -195,18 +195,22 @@ export default class ProgramState {
 
             const ans = await this._sendGenRequest(reqInput);
             this._answers[answerKey] = ans;
-            return ans;
+            return ans.text;
         };
     }
 
     get(key: string): string | undefined {
-        return this._answers[key];
+        return this._answers[key]?.text;
     }
 
     get_prompt(): string {
         return this._chatTemplateGroup
             .get_chat_template(this._current_model.path)
             .get_prompt(this._messages);
+    }
+
+    get_meta_info(key: string): MetaInfo | undefined {
+        return this._answers[key]?.meta_info;
     }
 }
 

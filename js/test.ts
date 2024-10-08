@@ -22,4 +22,5 @@ import ProgramState from './programState.js';
     console.log(
         await multiTurnQuestion(s, 'Tell me a joke', 'Tell me a better one'),
     );
+    console.log(s.get_meta_info('answer2'));
 })();
