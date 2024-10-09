@@ -35,4 +35,4 @@ jobs:
 
       - name: run CI
         run: |
-          pnpm ci
+          pnpm run ci
