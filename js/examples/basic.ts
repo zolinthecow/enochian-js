@@ -8,7 +8,7 @@ export async function run() {
         question1: string,
         question2: string,
     ): Promise<[string | undefined, string | undefined]> {
-        await s.setModel('http://localhost:30000');
+        await s.setModel({ url: 'http://localhost:30000' });
         await s
             .add(s.system`You are a helpful assistant.`)
             .add(s.user`${question1}`)
