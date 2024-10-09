@@ -5,7 +5,8 @@
     },
     "formatter": {
         "indentStyle": "space",
-        "indentWidth": 4
+        "indentWidth": 4,
+        "ignore": ["dist"]
     },
     "javascript": {
         "formatter": {
@@ -20,6 +21,7 @@
                 "noUselessElse": "off",
                 "useTemplate": "off"
             }
-        }
+        },
+        "ignore": ["dist"]
     }
 }
