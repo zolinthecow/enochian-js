@@ -1,4 +1,4 @@
-import ProgramState from '../programState.js';
+import ProgramState from '../src/programState.js';
 
 export async function run() {
     const s = new ProgramState();
