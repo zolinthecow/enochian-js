@@ -1,0 +1,43 @@
+name: Publish
+
+on:
+  release:
+    types: [created]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'js/.nvmrc'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: 'js/package.json'
+
+      - name: Install dependencies
+        run: |
+          pushd js
+          pnpm install
+
+      - name: Build package
+        run: |
+          pushd js
+          pnpm run ci
+
+      - name: Publish to NPM
+        run: |
+          pushd js
+          npm login
+          npm publish
