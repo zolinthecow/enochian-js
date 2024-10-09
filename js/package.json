@@ -5,7 +5,7 @@
     "main": "dist/index.js",
     "type": "module",
     "scripts": {
-        "build": "tsc",
+        "build": "tsc -p tsconfig.build.json",
         "ci": "pnpm build && pnpm check-format && pnpm check-exports",
         "format": "biome check --write --no-errors-on-unmatched",
         "check-format": "biome check --no-errors-on-unmatched",
@@ -28,7 +28,9 @@
         "@types/node": "^22.7.4",
         "husky": "^9.1.6",
         "lint-staged": "^15.2.10",
-        "typescript": "^5.6.3"
+        "tsup": "^8.3.0",
+        "typescript": "^5.6.3",
+        "vitest": "^2.1.2"
     },
     "lint-staged": {
         "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}": [
