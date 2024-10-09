@@ -10,9 +10,9 @@ export default class ProgramState {
     private _backend: Backend;
 
     constructor(
+        backend: Backend = new SGLBackend(),
         messages: Array<Message> = [],
         answers: { [key: string]: GenerateResp } = {},
-        backend: Backend = new SGLBackend(),
     ) {
         this._messages = [...messages];
         this._answers = { ...answers };
@@ -158,9 +158,9 @@ export default class ProgramState {
             .map(
                 () =>
                     new ProgramState(
+                        this._backend.clone(),
                         this._messages,
                         this._answers,
-                        this._backend.clone(),
                     ),
             );
     }
