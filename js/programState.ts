@@ -133,27 +133,37 @@ export default class ProgramState {
             );
 
             const processTemplate = async (): Promise<string> => {
-                let curPrompt = '';
+                const curMessage: Message = {
+                    role,
+                    content: '',
+                };
                 for (let i = 0; i < strings.length; i++) {
-                    curPrompt += strings[i];
+                    curMessage.content += strings[i];
                     if (i < values.length) {
                         const value = values[i];
                         if (isAsyncFunction(value)) {
                             // Need to apply the chat template prefix to the cur prompt
-                            const text = `${template.get_prompt(curMessages)}${prefix_suffix[0]}${curPrompt}`;
+                            let text = template.get_prompt([
+                                ...curMessages,
+                                curMessage,
+                            ]);
+                            const lastEndToken = text.lastIndexOf(
+                                prefix_suffix[1],
+                            );
+                            text = text.substring(0, lastEndToken);
                             // For now must be the gen function
                             const generatedText = await value(text);
                             // Should trim out the generated end tokens
-                            curPrompt += generatedText.replace(
+                            curMessage.content += generatedText.replace(
                                 prefix_suffix[1],
                                 '',
                             );
                         } else {
-                            curPrompt += value;
+                            curMessage.content += value;
                         }
                     }
                 }
-                return curPrompt;
+                return curMessage.content;
             };
 
             return (async () => {
