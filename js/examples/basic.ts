@@ -1,6 +1,6 @@
-import ProgramState from './programState.js';
+import ProgramState from '../programState.js';
 
-(async () => {
+export async function run() {
     const s = new ProgramState();
 
     async function multiTurnQuestion(
@@ -22,5 +22,8 @@ import ProgramState from './programState.js';
     console.log(
         await multiTurnQuestion(s, 'Tell me a joke', 'Tell me a better one'),
     );
-    console.log(s.get_meta_info('answer2'));
+}
+
+(async () => {
+    await run();
 })();

@@ -5,13 +5,22 @@ import { ChatTemplateGroup } from './chatTemplate.js';
 type Message = { role: 'user' | 'assistant' | 'system'; content: string };
 
 export default class ProgramState {
-    private _messages: Array<Message> = [];
-    private _answers: { [key: string]: GenerateResp } = {};
-    private _current_model = {
-        url: '',
-        path: '',
-    };
-    private _chatTemplateGroup = new ChatTemplateGroup();
+    private _messages: Array<Message>;
+    private _answers: { [key: string]: GenerateResp };
+    private _currentModel: { url: string; path: string };
+    private _chatTemplateGroup: ChatTemplateGroup;
+
+    constructor(
+        messages: Array<Message> = [],
+        answers: { [key: string]: GenerateResp } = {},
+        currentModel: { url: string; path: string } = { url: '', path: '' },
+        chatTemplateGroup: ChatTemplateGroup = new ChatTemplateGroup(),
+    ) {
+        this._messages = [...messages];
+        this._answers = { ...answers };
+        this._currentModel = { ...currentModel };
+        this._chatTemplateGroup = chatTemplateGroup.clone();
+    }
 
     private async _sendGenRequest(
         input: GenerateReqInput,
@@ -23,10 +32,8 @@ export default class ProgramState {
             },
             body: JSON.stringify(input),
         };
-        const resp = await fetch(
-            `${this._current_model.url}/generate`,
-            options,
-        );
+        console.log(options);
+        const resp = await fetch(`${this._currentModel.url}/generate`, options);
         const json = await resp.json();
         const generateResp = GenerateRespSchema.parse(json);
         return generateResp;
@@ -77,6 +84,26 @@ export default class ProgramState {
     assistant = this._createRoleFunction('assistant');
     system = this._createRoleFunction('system');
 
+    // If someone does `s.add(s.user`...`).add(s.user`...`)` it should be combined into one `user` message
+    private _getConcatedMessages() {
+        const messages: Message[] = [];
+        for (let i = 0; i < this._messages.length; i++) {
+            const prevMessage = messages[i - 1];
+            const curMessage = this._messages[i];
+            if (!curMessage) continue;
+            if (
+                i > 0 &&
+                prevMessage &&
+                this._messages[i - 1]?.role === this._messages[i]?.role
+            ) {
+                prevMessage.content += curMessage.content;
+            } else {
+                messages.push(curMessage);
+            }
+        }
+        return messages;
+    }
+
     private _processRoleStringTemplate(
         role: 'system' | 'user' | 'assistant',
         strings: TemplateStringsArray,
@@ -94,37 +121,49 @@ export default class ProgramState {
     ): string | Promise<string> {
         // This function should only be async if there is an async function inside `values`.
         if (values.some((v) => isAsyncFunction(v))) {
+            const curMessages = this._getConcatedMessages();
+
             const template = this._chatTemplateGroup.match(
-                this._current_model.path,
+                this._currentModel.path,
             );
             // I'm not sure how we're supposed to use the `hist_messages` param
             const prefix_suffix = template.get_prefix_and_suffix(
                 role,
-                this._messages,
+                curMessages,
             );
 
             const processTemplate = async (): Promise<string> => {
-                let curPrompt = '';
+                const curMessage: Message = {
+                    role,
+                    content: '',
+                };
                 for (let i = 0; i < strings.length; i++) {
-                    curPrompt += strings[i];
+                    curMessage.content += strings[i];
                     if (i < values.length) {
                         const value = values[i];
                         if (isAsyncFunction(value)) {
                             // Need to apply the chat template prefix to the cur prompt
-                            const text = `${template.get_prompt(this._messages)}${prefix_suffix[0]}${curPrompt}`;
+                            let text = template.get_prompt([
+                                ...curMessages,
+                                curMessage,
+                            ]);
+                            const lastEndToken = text.lastIndexOf(
+                                prefix_suffix[1],
+                            );
+                            text = text.substring(0, lastEndToken);
                             // For now must be the gen function
                             const generatedText = await value(text);
                             // Should trim out the generated end tokens
-                            curPrompt += generatedText.replace(
+                            curMessage.content += generatedText.replace(
                                 prefix_suffix[1],
                                 '',
                             );
                         } else {
-                            curPrompt += value;
+                            curMessage.content += value;
                         }
                     }
                 }
-                return curPrompt;
+                return curMessage.content;
             };
 
             return (async () => {
@@ -140,13 +179,13 @@ export default class ProgramState {
     }
 
     async setModel(url: string): Promise<ProgramState> {
-        this._current_model.url = url;
-        const resp = await fetch(`${this._current_model.url}/get_model_info`, {
+        this._currentModel.url = url;
+        const resp = await fetch(`${this._currentModel.url}/get_model_info`, {
             method: 'GET',
         });
         const json = await resp.json();
         const modelInfo = GetModelInfoSchema.parse(json);
-        this._current_model.path = modelInfo.model_path;
+        this._currentModel.path = modelInfo.model_path;
         return this;
     }
 
@@ -199,13 +238,28 @@ export default class ProgramState {
         };
     }
 
+    fork(_numForks?: number) {
+        const numForks = _numForks && _numForks > 0 ? _numForks : 1;
+        return Array(numForks)
+            .fill(null)
+            .map(
+                () =>
+                    new ProgramState(
+                        this._messages,
+                        this._answers,
+                        this._currentModel,
+                        this._chatTemplateGroup,
+                    ),
+            );
+    }
+
     get(key: string): string | undefined {
         return this._answers[key]?.text;
     }
 
     get_prompt(): string {
         return this._chatTemplateGroup
-            .get_chat_template(this._current_model.path)
+            .get_chat_template(this._currentModel.path)
             .get_prompt(this._messages);
     }
 

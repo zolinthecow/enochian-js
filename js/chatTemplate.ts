@@ -81,8 +81,22 @@ export class ChatTemplateGroup {
     templates: { [key: string]: ChatTemplate } = {};
     matching_functions: Array<(modelPath: string) => ChatTemplate | null> = [];
 
-    constructor() {
-        this.init();
+    constructor(
+        templates?: { [key: string]: ChatTemplate },
+        matching_functions?: Array<(modelPath: string) => ChatTemplate | null>,
+    ) {
+        if (templates && matching_functions) {
+            this.templates = templates;
+            this.matching_functions = matching_functions;
+        } else {
+            this.init();
+        }
+    }
+
+    clone() {
+        return new ChatTemplateGroup({ ...this.templates }, [
+            ...this.matching_functions,
+        ]);
     }
 
     init() {
