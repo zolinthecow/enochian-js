@@ -1,3 +1,4 @@
+import { run as backendSwapping } from './backendSwapping.js';
 import { run as basic } from './basic.js';
 import { run as fork } from './fork.js';
 import { run as openai } from './openai.js';
@@ -7,4 +8,5 @@ import { run as openai } from './openai.js';
     await basic();
     await fork();
     await openai();
+    await backendSwapping();
 })();

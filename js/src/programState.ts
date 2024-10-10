@@ -1,6 +1,8 @@
 import type { GenerateReqInput, GenerateResp, MetaInfo } from './api.js';
+import type { SetModelParams } from './backends/backend.interface.js';
 import type Backend from './backends/backend.interface.js';
-import SGLBackend from './backends/sgl.js';
+import type { OpenAISetModelParams } from './backends/openai.js';
+import SGLBackend, { type SGLSetModelParams } from './backends/sgl.js';
 
 type Message = { role: 'user' | 'assistant' | 'system'; content: string };
 
@@ -117,11 +119,16 @@ export default class ProgramState {
         }
     }
 
-    setModel(params: {
-        url?: string;
-        modelName?: string;
-    }): void | Promise<void> {
+    // For type safety in whether or not you have to await this
+    setModel(params: SGLSetModelParams): Promise<void>;
+    setModel(params: OpenAISetModelParams): void;
+    setModel(params: SetModelParams): void | Promise<void> {
         return this._backend.setModel(params);
+    }
+
+    setBackend(backend: Backend): ProgramState {
+        this._backend = backend;
+        return this;
     }
 
     add(message: Message): ProgramState;
@@ -180,6 +187,6 @@ export default class ProgramState {
 
 function isGenFunction(
     value: unknown,
-): value is (messages: Message[]) => Promise<string> {
+): value is ReturnType<InstanceType<typeof ProgramState>['gen']> {
     return typeof value === 'function';
 }

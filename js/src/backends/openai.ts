@@ -7,6 +7,11 @@ export type CompletionCreateParams = Parameters<
     InstanceType<typeof OpenAI>['chat']['completions']['create']
 >;
 
+export type OpenAISetModelParams = {
+    url?: string;
+    modelName?: OpenAI.ChatModel;
+};
+
 export default class OpenAIBackend implements Backend {
     private _modelName: OpenAI.ChatModel = 'gpt-4o-mini';
     private _openai: OpenAI;
@@ -32,10 +37,7 @@ export default class OpenAIBackend implements Backend {
         );
     }
 
-    setModel({
-        url,
-        modelName,
-    }: { url?: string; modelName?: OpenAI.ChatModel }): void {
+    setModel({ url, modelName }: OpenAISetModelParams): void {
         if (url) this._openai.baseURL = url;
         if (modelName) this._modelName = modelName;
     }
