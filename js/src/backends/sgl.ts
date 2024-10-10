@@ -51,7 +51,7 @@ export default class SGLBackend implements Backend {
 
     async gen(
         messages: Message[],
-        genInput?: Omit<Partial<GenerateReqInput>, 'text'>,
+        genInput?: Omit<Partial<GenerateReqInput>, 'text' | 'input_ids'>,
     ): Promise<GenerateResp> {
         const concatedMessages = this._getConcatedMessages(messages);
         const template = this._chatTemplateGroup.match(this._currentModel.path);

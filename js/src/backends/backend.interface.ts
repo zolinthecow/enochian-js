@@ -12,7 +12,7 @@ export default interface Backend {
     }: { url?: string; modelName?: string }): Promise<void> | void;
     gen(
         messages: Message[],
-        genInput?: Omit<Partial<GenerateReqInput>, 'text'>,
+        genInput?: Omit<Partial<GenerateReqInput>, 'text' | 'input_ids'>,
     ): Promise<GenerateResp>;
     getPrompt(messages: Message[]): string;
     clone(): Backend;
