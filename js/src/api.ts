@@ -5,27 +5,27 @@ import { z } from 'zod';
  */
 export type GenerateReqInput = {
     /** The input prompt. It can be a single prompt or a batch of prompts. */
-    text?: string | string[];
+    text?: string;
     /** The token ids for text; one can either specify text or input_ids. */
-    input_ids?: number[] | number[][];
+    input_ids?: number[];
     /**
      * The image input. It can be a file name, a url, or base64 encoded string.
      * See also python/sglang/srt/utils.py:load_image.
      */
     image_data?: string | string[];
     /** The sampling parameters. */
-    sampling_params: SamplingParams | SamplingParams[];
+    sampling_params: SamplingParams;
     /** The request id. */
-    rid?: string | string[];
+    rid?: string;
     /** Whether to return logprobs. */
-    return_logprob?: boolean | boolean[];
+    return_logprob?: boolean;
     /**
      * The start location of the prompt for return_logprob.
      * By default, this value is "-1", which means it will only return logprobs for output tokens.
      */
-    logprob_start_len?: number | number[];
+    logprob_start_len?: number;
     /** The number of top logprobs to return. */
-    top_logprobs_num?: number | number[];
+    top_logprobs_num?: number;
     /** Whether to detokenize tokens in text in the returned logprobs. */
     return_text_in_logprobs?: boolean;
     /** Whether to stream output. */

@@ -8,6 +8,8 @@ import { ChatTemplateGroup } from '../chatTemplate.js';
 import type { Message } from './backend.interface.js';
 import type Backend from './backend.interface.js';
 
+export type SGLSetModelParams = string;
+
 export default class SGLBackend implements Backend {
     private _chatTemplateGroup: ChatTemplateGroup;
     private _currentModel: { url: string; path: string };
@@ -32,14 +34,7 @@ export default class SGLBackend implements Backend {
             .get_prompt(messages);
     }
 
-    // Does not use `modelName`
-    async setModel({
-        url,
-        modelName,
-    }: { url?: string; modelName?: string }): Promise<void> {
-        if (!url) {
-            throw new Error('No model endpoint provided');
-        }
+    async setModel(url: SGLSetModelParams): Promise<void> {
         this._currentModel.url = url;
         const resp = await fetch(`${this._currentModel.url}/get_model_info`, {
             method: 'GET',
@@ -51,7 +46,7 @@ export default class SGLBackend implements Backend {
 
     async gen(
         messages: Message[],
-        genInput?: Omit<Partial<GenerateReqInput>, 'text'>,
+        genInput?: Omit<Partial<GenerateReqInput>, 'text' | 'input_ids'>,
     ): Promise<GenerateResp> {
         const concatedMessages = this._getConcatedMessages(messages);
         const template = this._chatTemplateGroup.match(this._currentModel.path);
