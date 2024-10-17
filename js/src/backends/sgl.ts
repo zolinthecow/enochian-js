@@ -1,14 +1,19 @@
 import {
     type GenerateReqInput,
+    type GenerateReqNonStreamingInput,
+    type GenerateReqStreamingInput,
     type GenerateRespMultiple,
+    GenerateRespMultipleSchema,
     GenerateRespSchema,
     type GenerateRespSingle,
+    GenerateRespSingleSchema,
     GetModelInfoSchema,
     type MetaInfo,
     type MetaInfoWithLogprobs,
 } from '../api.js';
 import { ChatTemplateGroup } from '../chatTemplate.js';
 import { tokenLengthNormalized } from '../choices.js';
+import { isNonStreamingInput } from '../utils.js';
 import type { Message } from './backend.interface.js';
 import type Backend from './backend.interface.js';
 
@@ -48,14 +53,43 @@ export default class SGLBackend implements Backend {
         this._currentModel.path = modelInfo.model_path;
     }
 
-    async gen(
+    gen(
+        message: Message[],
+        genInput?: Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>,
+    ): Promise<GenerateRespSingle>;
+    gen(
+        message: Message[],
+        genInput?: Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
+    ): AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown>;
+    gen(
         messages: Message[],
-        genInput?: Omit<Partial<GenerateReqInput>, 'text' | 'input_ids'>,
-    ): Promise<GenerateRespSingle> {
-        if (genInput?.choices !== undefined) {
-            return await this._selectChoice(genInput.choices, messages);
+        genInput?:
+            | Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>
+            | Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
+    ):
+        | Promise<GenerateRespSingle>
+        | AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown> {
+        if (genInput && !isNonStreamingInput(genInput)) {
+            return this._streamResponse(messages, genInput);
         } else {
-            return await this._sendGenerateRequest(messages, genInput);
+            if (
+                genInput &&
+                isNonStreamingInput(genInput) &&
+                genInput?.choices !== undefined
+            ) {
+                return this._selectChoice(genInput.choices, messages);
+            } else {
+                return (async () => {
+                    const httpResp = await this._sendGenerateRequest(
+                        messages,
+                        genInput,
+                    );
+                    const httpJson = await httpResp.json();
+                    const generateResp =
+                        GenerateRespSingleSchema.parse(httpJson);
+                    return generateResp;
+                })();
+            }
         }
     }
 
@@ -80,25 +114,78 @@ export default class SGLBackend implements Backend {
         return newMessages;
     }
 
+    private async *_streamResponse(
+        messages: Message[],
+        genInput?: Omit<GenerateReqInput, 'text' | 'input_ids' | 'choices'>,
+    ): AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown> {
+        const resp = await this._sendGenerateRequest(messages, genInput);
+        if (!resp.body) {
+            throw new Error('No response body in stream');
+        }
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let prevMessage: GenerateRespSingle | undefined;
+
+        async function* readStream(
+            reader: ReadableStreamDefaultReader<ArrayBuffer>,
+        ) {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) return;
+                yield value;
+            }
+        }
+
+        for await (const chunk of readStream(reader)) {
+            const textChunk = decoder.decode(chunk);
+            const firstCurlyBracket = textChunk.indexOf('{');
+            const lastCurlyBracket = textChunk.lastIndexOf('}');
+            if (firstCurlyBracket < 0 || lastCurlyBracket < 0) {
+                throw new Error('Unexpected stream format.');
+            }
+            const textChunkBody = textChunk.slice(
+                firstCurlyBracket,
+                lastCurlyBracket + 1,
+            );
+            const generateJson = JSON.parse(textChunkBody);
+            const generateResp = GenerateRespSingleSchema.parse(generateJson);
+            yield {
+                ...generateResp,
+                text: prevMessage
+                    ? generateResp.text.slice(prevMessage.text.length)
+                    : generateResp.text,
+            };
+            prevMessage = generateResp;
+        }
+
+        if (!prevMessage) {
+            throw new Error('No chunks were generated??');
+        }
+        console.log('###### RETURNING LAST VALUE #########', prevMessage);
+        return prevMessage;
+    }
+
     private async _selectChoice(
         choices: string[],
         messages: Message[],
     ): Promise<GenerateRespSingle> {
         // First cache the prefix
-        const throwaway = await this._sendGenerateRequest(messages, {
+        const throwawayResponse = await this._sendGenerateRequest(messages, {
             sampling_params: {
                 max_new_tokens: 0,
             },
         });
+        const throwawayJson = await throwawayResponse.json();
+        const throwaway = GenerateRespSingleSchema.parse(throwawayJson);
         const promptLength = throwaway.meta_info.prompt_tokens;
         // Take away one token for assistant start tag + one token for potential token healing
         const logprobStartLength = Math.max(promptLength - 2, 0);
 
         // Compute logprobs
-        const logprobsResp = await this._sendGenerateRequest(
+        const logprobsResponse = await this._sendGenerateRequest(
             choices.map((c) => [
                 ...messages,
-                { role: 'assistant', content: c },
+                { role: 'assistant', content: c } as Message,
             ]),
             {
                 sampling_params: {
@@ -110,6 +197,8 @@ export default class SGLBackend implements Backend {
                 logprob_start_len: logprobStartLength,
             },
         );
+        const logprobsJson = await logprobsResponse.json();
+        const logprobsResp = GenerateRespMultipleSchema.parse(logprobsJson);
         const metaInfos = logprobsResp.map((r) => r.meta_info);
         if (!metaInfos.every(isMetaInfoWithLogProbs)) {
             throw new Error('Choices request did not return logprobs.');
@@ -192,26 +281,9 @@ export default class SGLBackend implements Backend {
     }
 
     private async _sendGenerateRequest(
-        messages: Message[][],
-        genInput?: Omit<
-            Partial<GenerateReqInput>,
-            'text' | 'input_ids' | 'choices'
-        >,
-    ): Promise<GenerateRespMultiple>;
-    private async _sendGenerateRequest(
-        messages: Message[],
-        genInput?: Omit<
-            Partial<GenerateReqInput>,
-            'text' | 'input_ids' | 'choices'
-        >,
-    ): Promise<GenerateRespSingle>;
-    private async _sendGenerateRequest(
         messages: Message[][] | Message[],
-        genInput?: Omit<
-            Partial<GenerateReqInput>,
-            'text' | 'input_ids' | 'choices'
-        >,
-    ): Promise<GenerateRespMultiple | GenerateRespSingle> {
+        genInput?: Omit<GenerateReqInput, 'text' | 'input_ids' | 'choices'>,
+    ): Promise<Response> {
         const reqInput: GenerateReqInput = {
             text: 'temp',
             ...genInput,
@@ -249,9 +321,7 @@ export default class SGLBackend implements Backend {
         };
         console.log(options);
         const resp = await fetch(`${this._currentModel.url}/generate`, options);
-        const json = await resp.json();
-        const generateResp = GenerateRespSchema.parse(json);
-        return generateResp;
+        return resp;
     }
 }
 

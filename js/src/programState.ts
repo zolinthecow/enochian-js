@@ -1,5 +1,7 @@
 import type {
     GenerateReqInput,
+    GenerateReqNonStreamingInput,
+    GenerateReqStreamingInput,
     GenerateResp,
     GenerateRespSingle,
     MetaInfo,
@@ -8,6 +10,7 @@ import type { SetModelParams } from './backends/backend.interface.js';
 import type Backend from './backends/backend.interface.js';
 import type { OpenAISetModelParams } from './backends/openai.js';
 import SGLBackend, { type SGLSetModelParams } from './backends/sgl.js';
+import { isNonStreamingInput } from './utils.js';
 
 type Message = { role: 'user' | 'assistant' | 'system'; content: string };
 
@@ -35,14 +38,57 @@ export default class ProgramState {
         function roleFunction(
             this: ProgramState,
             strings: TemplateStringsArray,
-            ...values: (ReturnType<typeof this.gen> | string)[]
+            ...values: (GenAsyncFunctionReturnType | string)[]
         ): Promise<Message>;
         function roleFunction(
             this: ProgramState,
             strings: TemplateStringsArray,
-            ...values: string[] | (ReturnType<typeof this.gen> | string)[]
-        ): Message | Promise<Message> {
-            if (values.every((v) => typeof v === 'string')) {
+            ...values: (
+                | GenAsyncGeneratorReturnType
+                | GenAsyncFunctionReturnType
+                | string
+            )[]
+        ): AsyncGenerator<Message>;
+        function roleFunction(
+            this: ProgramState,
+            strings: TemplateStringsArray,
+            ...values:
+                | string[]
+                | (GenAsyncFunctionReturnType | string)[]
+                | (
+                      | GenAsyncGeneratorReturnType
+                      | GenAsyncFunctionReturnType
+                      | string
+                  )[]
+        ): Message | Promise<Message> | AsyncGenerator<Message> {
+            if (values.some((v) => isGenAsyncGenerator(v))) {
+                return async function* (this: ProgramState) {
+                    const chunks = this._processRoleStringTemplate(
+                        role,
+                        strings,
+                        ...(values as (
+                            | GenAsyncGeneratorReturnType
+                            | GenAsyncFunctionReturnType
+                            | string
+                        )[]),
+                    );
+                    for await (const chunk of chunks) {
+                        yield {
+                            role,
+                            content: chunk,
+                        };
+                    }
+                }.call(this);
+            } else if (values.some((v) => isGenAsyncFunction(v))) {
+                return (async () => ({
+                    role,
+                    content: await this._processRoleStringTemplate(
+                        role,
+                        strings,
+                        ...(values as (GenAsyncFunctionReturnType | string)[]),
+                    ),
+                }))();
+            } else {
                 return {
                     role,
                     content: this._processRoleStringTemplate(
@@ -51,17 +97,6 @@ export default class ProgramState {
                         ...(values as string[]),
                     ),
                 };
-            } else {
-                return (async () => {
-                    return {
-                        role,
-                        content: await this._processRoleStringTemplate(
-                            role,
-                            strings,
-                            ...values,
-                        ),
-                    };
-                })();
             }
         }
         return roleFunction;
@@ -79,15 +114,65 @@ export default class ProgramState {
     private _processRoleStringTemplate(
         role: 'system' | 'user' | 'assistant',
         strings: TemplateStringsArray,
-        ...values: (ReturnType<typeof this.gen> | string)[]
+        ...values: (GenAsyncFunctionReturnType | string)[]
     ): Promise<string>;
     private _processRoleStringTemplate(
         role: 'system' | 'user' | 'assistant',
         strings: TemplateStringsArray,
-        ...values: string[] | (ReturnType<typeof this.gen> | string)[]
-    ): string | Promise<string> {
-        // This function should only be async if there is an async function inside `values`.
-        if (values.some((v) => isGenFunction(v))) {
+        ...values: (
+            | GenAsyncGeneratorReturnType
+            | GenAsyncFunctionReturnType
+            | string
+        )[]
+    ): AsyncGenerator<string>;
+    private _processRoleStringTemplate(
+        role: 'system' | 'user' | 'assistant',
+        strings: TemplateStringsArray,
+        ...values:
+            | string[]
+            | (GenAsyncFunctionReturnType | string)[]
+            | (
+                  | GenAsyncGeneratorReturnType
+                  | GenAsyncFunctionReturnType
+                  | string
+              )[]
+    ): string | Promise<string> | AsyncGenerator<string> {
+        // If there is any async generator function it should become a generator
+        if (values.some((v) => isGenAsyncGenerator(v))) {
+            return async function* (this: ProgramState) {
+                const curMessage: Message = {
+                    role,
+                    content: '',
+                };
+                for (let i = 0; i < strings.length; i++) {
+                    curMessage.content += strings[i];
+                    if (i < values.length) {
+                        const value = values[i];
+                        if (isGenAsyncGenerator(value)) {
+                            const generator = value([
+                                ...this._messages,
+                                curMessage,
+                            ]);
+                            for await (const chunk of generator) {
+                                curMessage.content += chunk;
+                                yield chunk;
+                            }
+                        } else if (isGenAsyncFunction(value)) {
+                            const generatedText = await value([
+                                ...this._messages,
+                                curMessage,
+                            ]);
+                            curMessage.content += generatedText;
+                            yield generatedText;
+                        } else if (typeof value === 'string') {
+                            curMessage.content += value;
+                            yield value;
+                        }
+                    }
+                }
+            }.call(this);
+        } else if (values.some((v) => isGenAsyncFunction(v))) {
+            // Should only be async if there is an async function inside `values`.
             const processTemplate = async (): Promise<string> => {
                 const curMessage: Message = {
                     role,
@@ -97,14 +182,14 @@ export default class ProgramState {
                     curMessage.content += strings[i];
                     if (i < values.length) {
                         const value = values[i];
-                        if (isGenFunction(value)) {
+                        if (isGenAsyncFunction(value)) {
                             const generatedText = await value([
                                 ...this._messages,
                                 curMessage,
                             ]);
                             // Should trim out the generated end tokens
                             curMessage.content += generatedText;
-                        } else {
+                        } else if (typeof value === 'string') {
                             curMessage.content += value;
                         }
                     }
@@ -139,13 +224,27 @@ export default class ProgramState {
     add(message: Message): ProgramState;
     add(message: Promise<Message>): Promise<ProgramState>;
     add(
-        message: Message | Promise<Message>,
-    ): ProgramState | Promise<ProgramState> {
+        message: AsyncGenerator<Message, Message, undefined>,
+    ): AsyncGenerator<Message>;
+    add(
+        message:
+            | Message
+            | Promise<Message>
+            | AsyncGenerator<Message, Message, undefined>,
+    ): ProgramState | Promise<ProgramState> | AsyncGenerator<Message> {
         if (message instanceof Promise) {
             return (async () => {
                 this._messages.push(await message);
                 return this;
             })();
+        } else if (isAsyncMessageGenerator(message)) {
+            return async function* (this: ProgramState) {
+                for await (const m of message) {
+                    yield m;
+                }
+                const fullMessage = await message.next();
+                this._messages.push(fullMessage.value);
+            }.call(this);
         } else {
             this._messages.push(message);
             return this;
@@ -154,16 +253,48 @@ export default class ProgramState {
 
     gen(
         answerKey: string,
-        genInput?: Omit<Partial<GenerateReqInput>, 'text'>,
-    ): (messages: Message[]) => Promise<string> {
-        return async (messages: Message[]): Promise<string> => {
-            const ans = await this._backend.gen(messages, genInput);
-            if (Array.isArray(ans)) {
-                throw new Error('Multiple generations not implemented.');
-            }
-            this._answers[answerKey] = ans;
-            return ans.text;
-        };
+        genInput?: Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>,
+    ): (messages: Message[]) => Promise<string>;
+    gen(
+        answerKey: string,
+        genInput?: Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
+    ): (messages: Message[]) => AsyncGenerator<string, void, unknown>;
+    gen(
+        answerKey: string,
+        genInput?:
+            | Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>
+            | Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
+    ):
+        | ((messages: Message[]) => Promise<string>)
+        | ((messages: Message[]) => AsyncGenerator<string, void, unknown>) {
+        if (!genInput || isNonStreamingInput(genInput)) {
+            return async (messages: Message[]): Promise<string> => {
+                const ans = await this._backend.gen(messages, genInput);
+                if (Array.isArray(ans)) {
+                    throw new Error('Multiple generations not implemented.');
+                }
+                this._answers[answerKey] = ans;
+                return ans.text;
+            };
+        } else {
+            const self = this;
+            return async function* (messages: Message[]) {
+                // We expect the function to yield individual chunks, then return the final message
+                const generator = self._backend.gen(messages, genInput);
+                let chunk: IteratorResult<GenerateRespSingle> =
+                    await generator.next();
+                while (!chunk.done) {
+                    yield chunk.value.text;
+                    chunk = await generator.next();
+                }
+                // Get last message
+                const fullMessage = chunk;
+                if (!fullMessage.value || !fullMessage.done) {
+                    throw new Error('Missing return from gen');
+                }
+                self._answers[answerKey] = fullMessage.value;
+            };
+        }
     }
 
     fork(_numForks?: number) {
@@ -193,8 +324,42 @@ export default class ProgramState {
     }
 }
 
-function isGenFunction(
+type GenAsyncFunctionReturnType = (messages: Message[]) => Promise<string>;
+type GenAsyncGeneratorReturnType = (
+    messages: Message[],
+) => AsyncGenerator<string, void, unknown>;
+
+function isGenAsyncFunction(
     value: unknown,
-): value is ReturnType<InstanceType<typeof ProgramState>['gen']> {
-    return typeof value === 'function';
+): value is GenAsyncFunctionReturnType {
+    return (
+        typeof value === 'function' &&
+        value.constructor.name === 'AsyncFunction'
+    );
+}
+function isGenAsyncGenerator(
+    value: unknown,
+): value is GenAsyncGeneratorReturnType {
+    return (
+        typeof value === 'function' &&
+        value.constructor.name === 'AsyncGeneratorFunction'
+    );
+}
+
+function isAsyncMessageGenerator(
+    obj: unknown,
+): obj is AsyncGenerator<Message, Message, undefined> {
+    if (obj === null || typeof obj !== 'object') {
+        return false;
+    }
+
+    // Check if the object has the necessary methods of an AsyncGenerator
+    const asyncGen = obj as Partial<AsyncGenerator<unknown, unknown, unknown>>;
+
+    return (
+        typeof asyncGen.next === 'function' &&
+        typeof asyncGen.throw === 'function' &&
+        typeof asyncGen.return === 'function' &&
+        Symbol.asyncIterator in asyncGen
+    );
 }

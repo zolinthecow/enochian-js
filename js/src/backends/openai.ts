@@ -1,5 +1,12 @@
 import OpenAI, { type ClientOptions } from 'openai';
-import type { GenerateReqInput, GenerateResp } from '../api.js';
+import type {
+    GenerateReqInput,
+    GenerateReqNonStreamingInput,
+    GenerateReqStreamingInput,
+    GenerateResp,
+    GenerateRespSingle,
+} from '../api.js';
+import { isNonStreamingInput } from '../utils.js';
 import type { Message } from './backend.interface.js';
 import type Backend from './backend.interface.js';
 
@@ -42,27 +49,91 @@ export default class OpenAIBackend implements Backend {
         if (modelName) this._modelName = modelName;
     }
 
-    async gen(
+    gen(
+        message: Message[],
+        genInput?: Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>,
+    ): Promise<GenerateRespSingle>;
+    gen(
+        message: Message[],
+        genInput?: Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
+    ): AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown>;
+    gen(
         messages: Message[],
-        genInput?: Omit<Partial<GenerateReqInput>, 'text' | 'input_ids'>,
-    ): Promise<GenerateResp> {
-        if (genInput?.choices) {
-            throw new Error('Choices not implemented for OpenAI.');
-        }
+        genInput?:
+            | Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>
+            | Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
+    ):
+        | Promise<GenerateRespSingle>
+        | AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown> {
+        if (genInput && !isNonStreamingInput(genInput)) {
+            return this._streamResponse(messages, genInput);
+        } else {
+            return (async () => {
+                if (
+                    genInput &&
+                    isNonStreamingInput(genInput) &&
+                    genInput?.choices
+                ) {
+                    throw new Error('Choices not implemented for OpenAI.');
+                }
 
+                const completion = await this._openai.chat.completions.create(
+                    genInputToChatCompletionInput(
+                        messages,
+                        this._modelName,
+                        genInput,
+                    ),
+                );
+                return chatCompletionNonStreamingOutputToGenResp(completion);
+            })();
+        }
+    }
+
+    private async *_streamResponse(
+        messages: Message[],
+        genInput?: Omit<
+            GenerateReqStreamingInput,
+            'text' | 'input_ids' | 'choices'
+        >,
+    ): AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown> {
+        let accumlatedMessage = '';
         const completion = await this._openai.chat.completions.create(
             genInputToChatCompletionInput(messages, this._modelName, genInput),
         );
-        return chatCompletionNonStreamingOutputToGenResp(completion);
+        let resp: GenerateRespSingle | undefined;
+        for await (const chunk of completion) {
+            // TODO: Parallel using index
+            accumlatedMessage += chunk.choices[0]?.delta.content ?? '';
+            resp = chatCompletionChunkToGenRespSingle(chunk);
+            if (chunk.choices.length !== 0) yield resp;
+        }
+        if (!resp) {
+            throw new Error('No messages generated?');
+        }
+        resp.text = accumlatedMessage;
+        return resp;
     }
 }
 
-// TODO: This should be overloaded for streaming versus not streaming
 function genInputToChatCompletionInput(
     messages: Message[],
     model: OpenAI.ChatModel,
-    genInput?: Omit<Partial<GenerateReqInput>, 'text' | 'input_ids'>,
-) {
+    genInput?: Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>,
+): OpenAI.Chat.ChatCompletionCreateParamsNonStreaming;
+function genInputToChatCompletionInput(
+    messages: Message[],
+    model: OpenAI.ChatModel,
+    genInput?: Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
+): OpenAI.Chat.ChatCompletionCreateParamsStreaming;
+function genInputToChatCompletionInput(
+    messages: Message[],
+    model: OpenAI.ChatModel,
+    genInput?:
+        | Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>
+        | Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
+):
+    | OpenAI.Chat.ChatCompletionCreateParamsNonStreaming
+    | OpenAI.Chat.ChatCompletionCreateParamsStreaming {
     const bodyParams: OpenAI.Chat.ChatCompletionCreateParams = {
         messages,
         model,
@@ -77,19 +148,23 @@ function genInputToChatCompletionInput(
         stop: genInput?.sampling_params?.stop,
         temperature: genInput?.sampling_params?.temperature,
         top_p: genInput?.sampling_params?.top_p,
-        // stream: genInput?.stream ?? false,
-        stream: false,
+        stream: genInput?.stream,
     };
+    if (genInput?.stream) {
+        bodyParams.stream_options = {
+            include_usage: true,
+        };
+    }
     return bodyParams;
 }
 
 function chatCompletionNonStreamingOutputToGenResp(
     completion: OpenAI.Chat.ChatCompletion,
-): GenerateResp {
+): GenerateRespSingle {
     const completionToGenResp = (
         _completion: OpenAI.Chat.ChatCompletion,
         idx: number,
-    ): GenerateResp => {
+    ): GenerateRespSingle => {
         if (idx > _completion.choices.length)
             throw new Error('Index out of range');
         return {
@@ -123,4 +198,31 @@ function chatCompletionNonStreamingOutputToGenResp(
         // I'm not sure how I'm going to go about supporting parallel generations just yet
         // return completion.choices.map((_, i) => completionToGenResp(completion, i));
     }
+}
+
+function chatCompletionChunkToGenRespSingle(
+    chunk: OpenAI.Chat.Completions.ChatCompletionChunk,
+): GenerateRespSingle {
+    const resp: GenerateRespSingle = {
+        text: chunk.choices[0]?.delta.content ?? '',
+        index: 0,
+        meta_info: {
+            prompt_tokens: chunk.usage?.prompt_tokens ?? -1,
+            completion_tokens: chunk.usage?.completion_tokens ?? -1,
+            completion_tokens_wo_jump_forward:
+                chunk.usage?.completion_tokens ?? -1,
+            finish_reason:
+                chunk.choices[0]?.finish_reason === 'length'
+                    ? {
+                          type: 'length',
+                          length: chunk.usage?.completion_tokens ?? 0,
+                      }
+                    : {
+                          type: 'stop',
+                          matched: -1, /// OpenAI does not tell us this
+                      },
+            id: chunk.id,
+        },
+    };
+    return resp;
 }
