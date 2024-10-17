@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
 /**
- * Represents the input for a generation request.
+ * Base type for generation request input without `stream` and `choices`.
  */
-export type GenerateReqInput = {
+type GenerateReqInputBase = {
     /** The input prompt. It can be a single prompt or a batch of prompts. */
     text?: string | string[];
     /** The token ids for text; one can either specify text or input_ids. */
@@ -28,11 +28,46 @@ export type GenerateReqInput = {
     top_logprobs_num?: number;
     /** Whether to detokenize tokens in text in the returned logprobs. */
     return_text_in_logprobs?: boolean;
-    /** Whether to stream output. */
-    stream?: boolean;
-    /** List of possible strings the output could be */
-    choices?: string[];
 };
+
+/**
+ * Represents the sampling parameters for non-streaming generation.
+ */
+export type SamplingParamsNonStreaming = SamplingParams;
+
+/**
+ * Represents the sampling parameters for streaming generation (without `stop`).
+ */
+export type SamplingParamsStreaming = Omit<SamplingParams, 'stop'>;
+
+/**
+ * Represents the input for a non-streaming generation request.
+ */
+export type GenerateReqNonStreamingInput = GenerateReqInputBase & {
+    stream?: false | undefined;
+    choices?: string[];
+    sampling_params: SamplingParamsNonStreaming;
+};
+
+/**
+ * Represents the input for a streaming generation request.
+ * Disallows `choices` and `stop` parameters.
+ */
+export type GenerateReqStreamingInput = Omit<
+    GenerateReqInputBase,
+    'choices'
+> & {
+    stream: true;
+    sampling_params: SamplingParamsStreaming;
+};
+
+/**
+ * Represents the input for a generation request.
+ * It can be either streaming or non-streaming.
+ */
+export type GenerateReqInput =
+    | GenerateReqNonStreamingInput
+    | GenerateReqStreamingInput;
 
 /**
  * Represents the sampling parameters for generation.

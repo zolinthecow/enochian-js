@@ -1,5 +1,6 @@
 import {
     type GenerateReqInput,
+    type GenerateReqNonStreamingInput,
     type GenerateRespMultiple,
     GenerateRespSchema,
     type GenerateRespSingle,
@@ -9,6 +10,7 @@ import {
 } from '../api.js';
 import { ChatTemplateGroup } from '../chatTemplate.js';
 import { tokenLengthNormalized } from '../choices.js';
+import { isNonStreamingInput } from '../utils.js';
 import type { Message } from './backend.interface.js';
 import type Backend from './backend.interface.js';
 
@@ -50,9 +52,13 @@ export default class SGLBackend implements Backend {
 
     async gen(
         messages: Message[],
-        genInput?: Omit<Partial<GenerateReqInput>, 'text' | 'input_ids'>,
+        genInput?: Omit<GenerateReqInput, 'text' | 'input_ids'>,
     ): Promise<GenerateRespSingle> {
-        if (genInput?.choices !== undefined) {
+        if (
+            genInput &&
+            isNonStreamingInput(genInput) &&
+            genInput?.choices !== undefined
+        ) {
             return await this._selectChoice(genInput.choices, messages);
         } else {
             return await this._sendGenerateRequest(messages, genInput);
