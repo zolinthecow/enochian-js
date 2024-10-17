@@ -261,7 +261,9 @@ export default class ProgramState {
     ): (messages: Message[]) => AsyncGenerator<string, void, unknown>;
     gen(
         answerKey: string,
-        genInput?: Omit<GenerateReqInput, 'text' | 'input_ids'>,
+        genInput?:
+            | Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>
+            | Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
     ):
         | ((messages: Message[]) => Promise<string>)
         | ((messages: Message[]) => AsyncGenerator<string, void, unknown>) {
@@ -275,13 +277,22 @@ export default class ProgramState {
                 return ans.text;
             };
         } else {
+            const self = this;
             return async function* (messages: Message[]) {
-                const temp = ['1', '2', '3'];
-                for (const t of temp) {
-                    // Simulate some asynchronous processing
-                    await new Promise((resolve) => setTimeout(resolve, 1000));
-                    yield t;
+                // We expect the function to yield individual chunks, then return the final message
+                const generator = self._backend.gen(messages, genInput);
+                let chunk: IteratorResult<GenerateRespSingle> =
+                    await generator.next();
+                while (!chunk.done) {
+                    yield chunk.value.text;
+                    chunk = await generator.next();
                 }
+                // Get last message
+                const fullMessage = chunk;
+                if (!fullMessage.value || !fullMessage.done) {
+                    throw new Error('Missing return from gen');
+                }
+                self._answers[answerKey] = fullMessage.value;
             };
         }
     }

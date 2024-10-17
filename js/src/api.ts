@@ -14,7 +14,7 @@ type GenerateReqInputBase = {
      */
     image_data?: string | string[];
     /** The sampling parameters. */
-    sampling_params: SamplingParams;
+    sampling_params?: SamplingParams;
     /** The request id. */
     rid?: string;
     /** Whether to return logprobs. */
@@ -46,7 +46,7 @@ export type SamplingParamsStreaming = Omit<SamplingParams, 'stop'>;
 export type GenerateReqNonStreamingInput = GenerateReqInputBase & {
     stream?: false | undefined;
     choices?: string[];
-    sampling_params: SamplingParamsNonStreaming;
+    sampling_params?: SamplingParamsNonStreaming;
 };
 
 /**
@@ -58,7 +58,7 @@ export type GenerateReqStreamingInput = Omit<
     'choices'
 > & {
     stream: true;
-    sampling_params: SamplingParamsStreaming;
+    sampling_params?: SamplingParamsStreaming;
 };
 
 /**
@@ -144,17 +144,19 @@ export const MetaInfoSchemaWithoutLogprobs = z.object({
     prompt_tokens: z.number(),
     completion_tokens: z.number(),
     completion_tokens_wo_jump_forward: z.number(),
-    finish_reason: z.discriminatedUnion('type', [
-        z.object({
-            type: z.literal('length'),
-            length: z.number(),
-        }),
-        z.object({
-            type: z.literal('stop'),
-            // Token ID
-            matched: z.number(),
-        }),
-    ]),
+    finish_reason: z
+        .discriminatedUnion('type', [
+            z.object({
+                type: z.literal('length'),
+                length: z.number(),
+            }),
+            z.object({
+                type: z.literal('stop'),
+                // Token ID
+                matched: z.number(),
+            }),
+        ])
+        .nullish(),
     id: z.string(),
 });
 export type MetaInfoWithoutLogprobs = z.infer<
