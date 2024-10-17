@@ -84,8 +84,9 @@ export default class SGLBackend implements Backend {
                         messages,
                         genInput,
                     );
+                    const httpJson = await httpResp.json();
                     const generateResp =
-                        GenerateRespSingleSchema.parse(httpResp);
+                        GenerateRespSingleSchema.parse(httpJson);
                     return generateResp;
                 })();
             }
