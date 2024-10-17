@@ -46,6 +46,10 @@ export default class OpenAIBackend implements Backend {
         messages: Message[],
         genInput?: Omit<Partial<GenerateReqInput>, 'text' | 'input_ids'>,
     ): Promise<GenerateResp> {
+        if (genInput?.choices) {
+            throw new Error('Choices not implemented for OpenAI.');
+        }
+
         const completion = await this._openai.chat.completions.create(
             genInputToChatCompletionInput(messages, this._modelName, genInput),
         );
