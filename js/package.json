@@ -11,7 +11,7 @@
         "check-format": "biome check --no-errors-on-unmatched",
         "check-exports": "attw --pack . --ignore-rules=cjs-resolves-to-esm",
         "prepare": "cd .. && husky js/.husky",
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "node --import @swc-node/register/esm-register examples/_test.ts"
     },
     "keywords": ["LLM", "prompting"],
     "files": ["dist"],
