@@ -42,8 +42,6 @@ export default class OpenAIBackend implements Backend {
         if (modelName) this._modelName = modelName;
     }
 
-    // TODO: Needs to have some GenerateReqInput -> OpenAI kwargs function and some output converter.
-    // Or maybe it should just return the native output?
     async gen(
         messages: Message[],
         genInput?: Omit<Partial<GenerateReqInput>, 'text' | 'input_ids'>,

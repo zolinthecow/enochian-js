@@ -1,4 +1,9 @@
-import type { GenerateReqInput, GenerateResp, MetaInfo } from './api.js';
+import type {
+    GenerateReqInput,
+    GenerateResp,
+    GenerateRespSingle,
+    MetaInfo,
+} from './api.js';
 import type { SetModelParams } from './backends/backend.interface.js';
 import type Backend from './backends/backend.interface.js';
 import type { OpenAISetModelParams } from './backends/openai.js';
@@ -8,13 +13,13 @@ type Message = { role: 'user' | 'assistant' | 'system'; content: string };
 
 export default class ProgramState {
     private _messages: Array<Message>;
-    private _answers: { [key: string]: GenerateResp };
+    private _answers: { [key: string]: GenerateRespSingle };
     private _backend: Backend;
 
     constructor(
         backend: Backend = new SGLBackend(),
         messages: Array<Message> = [],
-        answers: { [key: string]: GenerateResp } = {},
+        answers: { [key: string]: GenerateRespSingle } = {},
     ) {
         this._messages = [...messages];
         this._answers = { ...answers };
@@ -153,6 +158,9 @@ export default class ProgramState {
     ): (messages: Message[]) => Promise<string> {
         return async (messages: Message[]): Promise<string> => {
             const ans = await this._backend.gen(messages, genInput);
+            if (Array.isArray(ans)) {
+                throw new Error('Multiple generations not implemented.');
+            }
             this._answers[answerKey] = ans;
             return ans.text;
         };

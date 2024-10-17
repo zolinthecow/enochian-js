@@ -5,9 +5,9 @@ import { z } from 'zod';
  */
 export type GenerateReqInput = {
     /** The input prompt. It can be a single prompt or a batch of prompts. */
-    text?: string;
+    text?: string | string[];
     /** The token ids for text; one can either specify text or input_ids. */
-    input_ids?: number[];
+    input_ids?: number[] | number[][];
     /**
      * The image input. It can be a file name, a url, or base64 encoded string.
      * See also python/sglang/srt/utils.py:load_image.
@@ -30,6 +30,8 @@ export type GenerateReqInput = {
     return_text_in_logprobs?: boolean;
     /** Whether to stream output. */
     stream?: boolean;
+    /** List of possible strings the output could be */
+    choices?: string[];
 };
 
 /**
@@ -96,7 +98,14 @@ export type SamplingParams = {
     min_new_tokens?: number;
 };
 
-export const MetaInfoSchema = z.object({
+export const LogprobSchema = z.tuple([
+    z.number(),
+    z.number(),
+    z.string().optional(),
+]);
+export type Logprob = z.infer<typeof LogprobSchema>;
+
+export const MetaInfoSchemaWithoutLogprobs = z.object({
     prompt_tokens: z.number(),
     completion_tokens: z.number(),
     completion_tokens_wo_jump_forward: z.number(),
@@ -113,13 +122,39 @@ export const MetaInfoSchema = z.object({
     ]),
     id: z.string(),
 });
+export type MetaInfoWithoutLogprobs = z.infer<
+    typeof MetaInfoSchemaWithoutLogprobs
+>;
+
+export const MetaInfoSchemaWithLogprobs = MetaInfoSchemaWithoutLogprobs.extend({
+    input_token_logprobs: z.array(LogprobSchema).nullish(),
+    output_token_logprobs: z.array(LogprobSchema).nullish(),
+    input_top_logprobs: z.array(z.array(LogprobSchema)).nullish(),
+    output_top_logprobs: z.array(z.array(LogprobSchema)).nullish(),
+    normalized_prompt_logprob: z.number(),
+});
+export type MetaInfoWithLogprobs = z.infer<typeof MetaInfoSchemaWithLogprobs>;
+
+export const MetaInfoSchema = z.union([
+    MetaInfoSchemaWithLogprobs,
+    MetaInfoSchemaWithoutLogprobs,
+]);
 export type MetaInfo = z.infer<typeof MetaInfoSchema>;
 
-export const GenerateRespSchema = z.object({
+export const GenerateRespSingleSchema = z.object({
     text: z.string(),
     meta_info: MetaInfoSchema,
     index: z.number(),
 });
+export type GenerateRespSingle = z.infer<typeof GenerateRespSingleSchema>;
+
+export const GenerateRespMultipleSchema = z.array(GenerateRespSingleSchema);
+export type GenerateRespMultiple = z.infer<typeof GenerateRespMultipleSchema>;
+
+export const GenerateRespSchema = z.union([
+    GenerateRespMultipleSchema,
+    GenerateRespSingleSchema,
+]);
 export type GenerateResp = z.infer<typeof GenerateRespSchema>;
 
 export const GetModelInfoSchema = z.object({
