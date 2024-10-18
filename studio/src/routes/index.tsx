@@ -1,5 +1,12 @@
 import { Title } from '@solidjs/meta';
-import { For, Show, createMemo, createSignal } from 'solid-js';
+import {
+    For,
+    Show,
+    createEffect,
+    createMemo,
+    createSignal,
+    onCleanup,
+} from 'solid-js';
 import { Button } from '~/components/ui/button';
 import {
     Tabs,
@@ -8,41 +15,8 @@ import {
     TabsList,
     TabsTrigger,
 } from '~/components/ui/tabs';
-
-// Mock data
-const mockPromptTypes = [
-    'Docs Query',
-    'Joke telling',
-    'Code completion',
-    'Story writing',
-    'Data analysis',
-];
-const mockPrompts = [
-    {
-        id: 1,
-        type: 'Docs Query',
-        content: 'How do I use React hooks?',
-        output: 'React hooks are...',
-        timestamp: new Date('2023-05-01T10:00:00'),
-        tokensUsed: 150,
-    },
-    {
-        id: 2,
-        type: 'Joke telling',
-        content: 'Tell me a joke about programming',
-        output: 'Why do programmers prefer dark mode? Because light attracts bugs!',
-        timestamp: new Date('2023-05-02T11:30:00'),
-        tokensUsed: 80,
-    },
-    {
-        id: 3,
-        type: 'Code completion',
-        content: 'Complete this function: def fibonacci(n):',
-        output: 'def fibonacci(n):\n    if n <= 1:\n        return n\n    else:\n        return fibonacci(n-1) + fibonacci(n-2)',
-        timestamp: new Date('2023-05-03T14:15:00'),
-        tokensUsed: 200,
-    },
-];
+import { trpc } from '~/lib/api';
+import type { ParsedPrompt } from '~/lib/db';
 
 type PromptTypeListProps = {
     promptTypes: string[];
@@ -67,17 +41,9 @@ function PromptTypeList(props: PromptTypeListProps) {
     );
 }
 
-type Prompt = {
-    id: number;
-    type: string;
-    content: string;
-    output: string;
-    timestamp: Date;
-    tokensUsed: number;
-};
 type PromptListProps = {
-    prompts: Prompt[];
-    onSelectPrompt: (id: number) => void;
+    prompts: ParsedPrompt[];
+    onSelectPrompt: (id: string) => void;
 };
 function PromptList(props: PromptListProps) {
     return (
@@ -90,10 +56,10 @@ function PromptList(props: PromptListProps) {
                         on:click={() => props.onSelectPrompt(prompt.id)}
                     >
                         <p class="font-semibold">
-                            {prompt.content.substring(0, 50)}...
+                            {prompt.prompts[0]?.substring(0, 50) ?? ''}...
                         </p>
                         <p class="text-sm text-muted-foreground">
-                            {prompt.timestamp.toLocaleString()}
+                            {new Date(prompt.createdAt).toLocaleString()}
                         </p>
                     </Button>
                 )}
@@ -103,53 +69,86 @@ function PromptList(props: PromptListProps) {
 }
 
 type PromptDetailsProps = {
-    prompt: Prompt;
+    prompt: ParsedPrompt;
 };
 function PromptDetails(props: PromptDetailsProps) {
-    const prompt = props.prompt;
-
     return (
         <div class="p-4 border rounded">
             <h3 class="text-lg font-semibold mb-2">Prompt Details</h3>
-            <p>
-                <strong>Content:</strong> {prompt.content}
-            </p>
-            <p>
-                <strong>Output:</strong> {prompt.output}
-            </p>
-            <p>
-                <strong>Timestamp:</strong> {prompt.timestamp.toLocaleString()}
-            </p>
-            <p>
-                <strong>Tokens Used:</strong> {prompt.tokensUsed}
-            </p>
+            <For each={props.prompt.prompts}>
+                {(prompt, idx) => (
+                    <div class="p-2 border rounded my-2">
+                        <p>
+                            <strong>Content:</strong> {prompt}
+                        </p>
+                        <p>
+                            <strong>Metadata:</strong>{' '}
+                            {JSON.stringify(props.prompt.metadata[idx()])}
+                        </p>
+                        <p>
+                            <strong>Timestamp:</strong>{' '}
+                            {props.prompt.createdAt.toLocaleString()}
+                        </p>
+                    </div>
+                )}
+            </For>
         </div>
     );
 }
 
 export default function Home() {
-    const [selectedType, setSelectedType] = createSignal<string>(
-        mockPromptTypes[0],
-    );
-    const [selectedPrompt, setSelectedPrompt] = createSignal<Prompt | null>(
-        null,
-    );
+    const [allPromptTypes, setAllPromptTypes] = createSignal<string[]>([]);
+    const [allPrompts, setAllPrompts] = createSignal<ParsedPrompt[]>([]);
+    createEffect(() => {
+        const promptsSubscription = trpc.prompt.listenPrompts.subscribe(
+            undefined,
+            {
+                onData: (newPrompts) => {
+                    setAllPrompts(newPrompts);
+                },
+                onError: (err) => {
+                    console.error('Error in prompts subscription:', err);
+                },
+            },
+        );
+        const promptTypesSubscription = trpc.prompt.listenPromptTypes.subscribe(
+            undefined,
+            {
+                onData: (newPromptTypes) => {
+                    setAllPromptTypes(newPromptTypes.map((pt) => pt.type));
+                },
+                onError: (err) => {
+                    console.error('Error in promptTypes subscription:', err);
+                },
+            },
+        );
+        onCleanup(() => {
+            promptTypesSubscription.unsubscribe();
+            promptsSubscription.unsubscribe();
+        });
+    });
+
+    const [selectedType, setSelectedType] = createSignal<string | null>(null);
+    const [selectedPrompt, setSelectedPrompt] =
+        createSignal<ParsedPrompt | null>(null);
     const [selectedTab, setSelectedTab] = createSignal<'prompts' | 'details'>(
         'prompts',
     );
 
     const onSelectType = (type: string): void => {
-        console.log('SELECT TYPE', type);
+        if (type !== selectedType()) {
+            setSelectedTab('prompts');
+        }
         setSelectedType(type);
     };
 
-    const onSelectPrompt = (id: number): void => {
-        setSelectedPrompt(mockPrompts.find((p) => p.id === id) ?? null);
+    const onSelectPrompt = (id: string): void => {
+        setSelectedPrompt(allPrompts().find((p) => p.id === id) ?? null);
         setSelectedTab('details');
     };
 
     const filteredPrompts = createMemo(() =>
-        mockPrompts.filter((p) => p.type === selectedType()),
+        allPrompts().filter((p) => p.type === selectedType()),
     );
 
     return (
@@ -159,7 +158,7 @@ export default function Home() {
                 <h1 class="text-2xl font-bold mb-4">Prompt Studio</h1>
                 <div class="flex gap-4">
                     <PromptTypeList
-                        promptTypes={mockPromptTypes}
+                        promptTypes={allPromptTypes()}
                         onSelectType={onSelectType}
                     />
                     <div class="flex-1">

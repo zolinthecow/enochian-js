@@ -10,13 +10,13 @@ export default function NotFound() {
             <p>
                 Visit{' '}
                 <a
-                    href="https://start.solidjs.com"
+                    href="https://github.com/zolinthecow/enochian-js"
                     rel="noreferrer"
                     target="_blank"
                 >
-                    start.solidjs.com
+                    the Enochian github
                 </a>{' '}
-                to learn how to build SolidStart apps.
+                to see the valid pages or ask any questions.
             </p>
         </main>
     );

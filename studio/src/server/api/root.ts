@@ -1,8 +1,8 @@
-import { exampleRouter } from "./routers/example";
-import { createTRPCRouter } from "./utils";
+import { promptRouter } from './routers/prompt';
+import { createTRPCRouter } from './utils';
 
 export const appRouter = createTRPCRouter({
-  example: exampleRouter
+    prompt: promptRouter,
 });
 
 export type AppRouter = typeof appRouter;

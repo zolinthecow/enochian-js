@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 
-const db = new Database('enochian-studio.sqlite');
+const db: Database.Database = new Database('enochian-studio.sqlite');
 
 export default db;
 

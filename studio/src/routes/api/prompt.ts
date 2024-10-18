@@ -3,6 +3,7 @@ import { ulid } from 'ulid';
 import { z } from 'zod';
 
 import db, { type Prompt, type PromptType } from '~/lib/db';
+import { ee } from '~/server/api/utils';
 
 const PostBodySchema = z.object({
     type: z.string(),
@@ -16,6 +17,8 @@ export async function POST(event: APIEvent) {
     const rawBody = await event.request.json();
     const body = PostBodySchema.parse(rawBody);
 
+    let didCreateNewPromptType = false;
+    let didCreateNewPrompt = false;
     try {
         db.prepare('BEGIN TRANSACTION').run();
 
@@ -28,6 +31,7 @@ export async function POST(event: APIEvent) {
                 db.prepare('INSERT INTO PromptType (type) VALUES (?)').run(
                     body.type,
                 );
+                didCreateNewPromptType = true;
             }
 
             // Get or create Prompt
@@ -74,9 +78,17 @@ export async function POST(event: APIEvent) {
                     JSON.stringify([body.prompt]),
                     JSON.stringify([body.metadata || {}]),
                 );
+                didCreateNewPrompt = true;
             }
 
             db.prepare('COMMIT').run();
+
+            if (didCreateNewPromptType) {
+                ee.emit('newPromptType');
+            }
+            if (didCreateNewPrompt) {
+                ee.emit('newPrompt');
+            }
 
             return {
                 id: promptID,
