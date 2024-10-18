@@ -1,10 +1,19 @@
 {
-    "name": "example-with-trpc",
+    "name": "enochian-studio",
+    "version": "0.0.1-alpha.0",
+    "description": "A web client for viewing enochian requests",
     "type": "module",
     "scripts": {
         "dev": "vinxi dev",
         "build": "vinxi build",
-        "start": "vinxi start"
+        "start": "vinxi start",
+        "migrate": "node migrate.js"
+    },
+    "keywords": ["LLM", "prompting"],
+    "author": "Colin Zhao",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/zolinthecow/enochian-js.git"
     },
     "dependencies": {
         "@kobalte/core": "^0.13.7",
@@ -28,6 +37,7 @@
     "engines": {
         "node": ">=18"
     },
+    "packageManager": "pnpm@9.11.0",
     "devDependencies": {
         "@types/better-sqlite3": "^7.6.11",
         "autoprefixer": "^10.4.20",

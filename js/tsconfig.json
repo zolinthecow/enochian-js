@@ -1,5 +1,6 @@
 {
     "compilerOptions": {
+        /* Base Options */
         "esModuleInterop": true,
         "skipLibCheck": true,
         "target": "es2022",
@@ -8,13 +9,23 @@
         "moduleDetection": "force",
         "isolatedModules": true,
         "verbatimModuleSyntax": true,
+
+        /* Strictness */
         "strict": true,
         "noUncheckedIndexedAccess": true,
         "noImplicitOverride": true,
+
+        /* Transpiling */
         "module": "NodeNext",
         "outDir": "dist",
+
+        /* Library stuff */
         "sourceMap": true,
         "declaration": true,
+        "composite": true,
+        "declarationMap": true,
+
+        /* Not running in DOM */
         "lib": ["es2022"]
     }
 }
