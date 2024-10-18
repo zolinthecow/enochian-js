@@ -1,6 +1,7 @@
 import { Title } from '@solidjs/meta';
 import { createAsync } from '@solidjs/router';
 import Counter from '~/components/Counter';
+import { Button } from '~/components/ui/button';
 import { api } from '~/lib/api';
 
 export default function Home() {
@@ -8,8 +9,9 @@ export default function Home() {
     return (
         <main>
             <Title>Hello World</Title>
-            <h1 class="text-purple-300 text-2xl">Hello world!</h1>
+            <h1 class="text-purple-300 text-3xl">Hello world!</h1>
             <Counter />
+            <Button variant="outline">hi</Button>
             <p>
                 Visit{' '}
                 <a
