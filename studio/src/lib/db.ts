@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { z } from 'zod';
 
 const db: Database.Database = new Database('enochian-studio.sqlite');
 
@@ -15,31 +16,40 @@ export type PromptType = {
 export type Prompt = {
     id: string;
     type: string;
-    prompts: string; // JSON string of string[]
-    metadata: string; // JSON string of any[]
+    requests: string; // JSON string of array of PromptRequest
     createdAt: string;
     updatedAt: string;
 };
 
+export const PromptRequestSchema = z.object({
+    id: z.string(),
+    requestPrompt: z.string(),
+    requestTimestamp: z.string(),
+    requestMetadata: z.unknown(), // JSON object
+    responseContent: z.string().optional(),
+    responseTimestamp: z.string().optional(),
+    responseMetadata: z.unknown().optional(), // JSON object
+});
+export type PromptRequest = z.infer<typeof PromptRequestSchema>;
+
 // Helper type for parsed Prompt data
-export type ParsedPrompt = Omit<Prompt, 'prompts' | 'metadata'> & {
-    prompts: string[];
-    metadata: unknown[];
+export type ParsedPrompt = Omit<Prompt, 'requests'> & {
+    requests: PromptRequest[];
 };
 
 // Helper functions to parse JSON fields
 export function parsePrompt(prompt: Prompt): ParsedPrompt {
     return {
         ...prompt,
-        prompts: JSON.parse(prompt.prompts),
-        metadata: JSON.parse(prompt.metadata),
+        requests: PromptRequestSchema.array().parse(
+            JSON.parse(prompt.requests),
+        ),
     };
 }
 
 export function stringifyPrompt(prompt: ParsedPrompt): Prompt {
     return {
         ...prompt,
-        prompts: JSON.stringify(prompt.prompts),
-        metadata: JSON.stringify(prompt.metadata),
+        requests: JSON.stringify(prompt.requests),
     };
 }

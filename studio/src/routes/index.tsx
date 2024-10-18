@@ -56,7 +56,11 @@ function PromptList(props: PromptListProps) {
                         on:click={() => props.onSelectPrompt(prompt.id)}
                     >
                         <p class="font-semibold">
-                            {prompt.prompts[0]?.substring(0, 50) ?? ''}...
+                            {prompt.requests[0]?.requestPrompt.substring(
+                                0,
+                                50,
+                            ) ?? ''}
+                            ...
                         </p>
                         <p class="text-sm text-muted-foreground">
                             {new Date(prompt.createdAt).toLocaleString()}
@@ -75,20 +79,54 @@ function PromptDetails(props: PromptDetailsProps) {
     return (
         <div class="p-4 border rounded">
             <h3 class="text-lg font-semibold mb-2">Prompt Details</h3>
-            <For each={props.prompt.prompts}>
-                {(prompt, idx) => (
+            <For each={props.prompt.requests}>
+                {(request) => (
                     <div class="p-2 border rounded my-2">
                         <p>
-                            <strong>Content:</strong> {prompt}
+                            <strong class="underline">Request Prompt</strong>
+                            <br />
+                            {request.requestPrompt}
                         </p>
                         <p>
-                            <strong>Metadata:</strong>{' '}
-                            {JSON.stringify(props.prompt.metadata[idx()])}
+                            <strong class="underline">Request Metadata</strong>
+                            <br />
+                            {JSON.stringify(request.requestMetadata)}
                         </p>
                         <p>
                             <strong>Timestamp:</strong>{' '}
-                            {props.prompt.createdAt.toLocaleString()}
+                            {new Date(
+                                request.requestTimestamp,
+                            ).toLocaleString()}
                         </p>
+                        <div class="h-2" />
+                        <Show
+                            when={
+                                request.responseContent !== undefined &&
+                                request.responseMetadata !== undefined &&
+                                request.responseTimestamp !== undefined
+                            }
+                        >
+                            <p>
+                                <strong class="underline">
+                                    Response Content
+                                </strong>
+                                <br />
+                                {request.responseContent}
+                            </p>
+                            <p>
+                                <strong class="underline">
+                                    Response Metadata
+                                </strong>
+                                <br />
+                                {JSON.stringify(request.responseTimestamp)}
+                            </p>
+                            <p>
+                                <strong>Timestamp:</strong>{' '}
+                                {new Date(
+                                    request.responseTimestamp as string,
+                                ).toLocaleString()}
+                            </p>
+                        </Show>
                     </div>
                 )}
             </For>
