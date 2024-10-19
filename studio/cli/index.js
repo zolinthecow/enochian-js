@@ -14,7 +14,7 @@ const runMigrations = () => {
 const startApp = () => {
     console.log('Starting Enochian studio at http://localhost:56765');
     const serverPath = path.join(packageRoot, '.output', 'server', 'index.mjs');
-    execSync(`node ${serverPath}`, { stdio: 'inherit' });
+    execSync(`PORT=56765 node ${serverPath}`, { stdio: 'inherit' });
 };
 
 const main = () => {
