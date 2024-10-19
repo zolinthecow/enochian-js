@@ -16,7 +16,8 @@
         "ci": "pnpm build && pnpm check-format && pnpm check-exports"
     },
     "keywords": ["LLM", "prompting"],
-    "files": [".output", "cli", "migrations", "migrate.js"],
+    "types": "index.d.ts",
+    "files": [".output", "cli", "migrations", "migrate.js", "index.d.ts"],
     "author": "Colin Zhao",
     "repository": {
         "type": "git",
