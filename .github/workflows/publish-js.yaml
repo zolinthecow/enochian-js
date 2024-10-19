@@ -1,19 +1,16 @@
-name: CI
+name: Publish JS
 
 on:
-  pull_request:
-    branches:
-      - master
-  push:
-    branches:
-      - master
+  release:
+    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  ci:
+  publish:
+    if: startsWith(github.event.release.name, '[enochian-js]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,15 +25,24 @@ jobs:
         with:
           package_json_file: 'package.json'
 
+      - name: Create .npmrc
+        run: |
+          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
+          echo "registry=https://registry.npmjs.org/" >> .npmrc
+          echo "always-auth=true" >> .npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Install dependencies
         run: |
           pnpm install
 
-      - name: run CI
+      - name: Build package
         run: |
           pushd js
           pnpm run ci
-          popd
-          pushd studio
-          pnpm run ci
-          popd
+
+      - name: Publish to NPM
+        run: |
+          pushd js
+          pnpm publish

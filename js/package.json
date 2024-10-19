@@ -1,6 +1,6 @@
 {
     "name": "enochian-js",
-    "version": "0.0.1-beta.0",
+    "version": "0.0.1",
     "description": "An ergonmic LLM programming library",
     "main": "dist/index.js",
     "type": "module",
@@ -28,7 +28,7 @@
     },
     "packageManager": "pnpm@9.11.0",
     "dependencies": {
-        "enochian-studio": "workspace:*",
+        "enochian-studio": "workspace:^*",
         "openai": "^4.67.3",
         "ulid": "^2.3.0",
         "zod": "^3.23.8"

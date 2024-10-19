@@ -3,11 +3,11 @@
 import { execSync } from 'node:child_process';
 import path from 'node:path';
 
-const packageRoot = path.resolve(__dirname, '..');
+const packageRoot = path.resolve(import.meta.dirname, '..');
 
 const runMigrations = () => {
     console.log('Running SQLite migrations...');
-    const migratePath = path.jjoin(packageRoot, 'migrate.js');
+    const migratePath = path.join(packageRoot, 'migrate.js');
     execSync(`node ${migratePath}`, { stdio: 'inherit' });
 };
 

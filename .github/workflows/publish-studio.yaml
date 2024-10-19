@@ -1,4 +1,4 @@
-name: Publish
+name: Publish Studio
 
 on:
   release:
@@ -10,6 +10,7 @@ concurrency:
 
 jobs:
   publish:
+    if: startsWith(github.event.release.name, '[enochian-studio]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,22 +18,12 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: 'js/.nvmrc'
+          node-version-file: '.nvmrc'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          package_json_file: 'js/package.json'
-
-      - name: Install dependencies
-        run: |
-          pushd js
-          pnpm install
-
-      - name: Build package
-        run: |
-          pushd js
-          pnpm run ci
+          package_json_file: 'package.json'
 
       - name: Create .npmrc
         run: |
@@ -42,7 +33,16 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Install dependencies
+        run: |
+          pnpm install
+
+      - name: Build package
+        run: |
+          pushd studio
+          pnpm run ci
+
       - name: Publish to NPM
         run: |
-          pushd js
-          npm publish
+          pushd studio
+          pnpm publish
