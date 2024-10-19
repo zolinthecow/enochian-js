@@ -1,0 +1,57 @@
+{
+    "name": "enochian-studio",
+    "version": "0.0.1-alpha.0",
+    "description": "A web client for viewing enochian requests",
+    "type": "module",
+    "bin": {
+        "enochian": "./cli/index.js"
+    },
+    "scripts": {
+        "dev": "vinxi dev --port 56765",
+        "build": "vinxi build",
+        "start": "vinxi start",
+        "migrate": "node migrate.js",
+        "check-format": "biome check --no-errors-on-unmatched",
+        "check-exports": "attw --pack . --ignore-rules=cjs-resolves-to-esm",
+        "ci": "pnpm build && pnpm check-format && pnpm check-exports"
+    },
+    "keywords": ["LLM", "prompting"],
+    "types": "index.d.ts",
+    "files": [".output", "cli", "migrations", "migrate.js", "index.d.ts"],
+    "author": "Colin Zhao",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/zolinthecow/enochian-js.git"
+    },
+    "dependencies": {
+        "@kobalte/core": "^0.13.7",
+        "@solidjs/meta": "^0.29.4",
+        "@solidjs/router": "^0.14.7",
+        "@solidjs/start": "^1.0.8",
+        "@trpc/client": "11.0.0-rc.586",
+        "@trpc/server": "11.0.0-rc.586",
+        "@typeschema/valibot": "^0.13.4",
+        "better-sqlite3": "^11.4.0",
+        "class-variance-authority": "^0.7.0",
+        "clsx": "^2.1.1",
+        "solid-js": "^1.9.1",
+        "tailwind-merge": "^2.5.4",
+        "tailwindcss-animate": "^1.0.7",
+        "ulid": "^2.3.0",
+        "valibot": "^0.29.0",
+        "vinxi": "^0.4.3",
+        "zod": "^3.23.8"
+    },
+    "engines": {
+        "node": ">=18"
+    },
+    "packageManager": "pnpm@9.11.0",
+    "devDependencies": {
+        "@arethetypeswrong/cli": "^0.16.4",
+        "@types/better-sqlite3": "^7.6.11",
+        "@types/node": "^22.7.4",
+        "autoprefixer": "^10.4.20",
+        "postcss": "^8.4.47",
+        "tailwindcss": "^3.4.14"
+    }
+}

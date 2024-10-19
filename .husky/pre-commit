@@ -7,5 +7,5 @@ fi
 if [ "$SKIP_LINT" = "true" ]; then
     echo "Skipping lint-staged as per .env configuration."
 else
-    pushd js && lint-staged && popd
+    lint-staged
 fi

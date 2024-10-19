@@ -6,7 +6,7 @@
         "target": "es2022",
         "allowJs": true,
         "resolveJsonModule": true,
-        "moduleDetection": "force",
+        "moduleResolution": "bundler",
         "isolatedModules": true,
         "verbatimModuleSyntax": true,
 
@@ -16,8 +16,7 @@
         "noImplicitOverride": true,
 
         /* Transpiling */
-        "module": "NodeNext",
-        "outDir": "dist",
+        "module": "ESNext",
 
         /* Library stuff */
         "sourceMap": true,
@@ -25,7 +24,14 @@
         "composite": true,
         "declarationMap": true,
 
-        /* Not running in DOM */
-        "lib": ["es2022"]
+        /* Solid Start */
+        "allowSyntheticDefaultImports": true,
+        "jsx": "preserve",
+        "jsxImportSource": "solid-js",
+        "noEmit": true,
+        "types": ["vinxi/types/client"],
+        "paths": {
+            "~/*": ["./src/*"]
+        }
     }
 }

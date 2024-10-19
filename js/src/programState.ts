@@ -1,8 +1,8 @@
+import { ulid } from 'ulid';
 import type {
-    GenerateReqInput,
+    Debug,
     GenerateReqNonStreamingInput,
     GenerateReqStreamingInput,
-    GenerateResp,
     GenerateRespSingle,
     MetaInfo,
 } from './api.js';
@@ -18,15 +18,18 @@ export default class ProgramState {
     private _messages: Array<Message>;
     private _answers: { [key: string]: GenerateRespSingle };
     private _backend: Backend;
+    private _debug: Debug | null;
 
     constructor(
         backend: Backend = new SGLBackend(),
         messages: Array<Message> = [],
         answers: { [key: string]: GenerateRespSingle } = {},
+        debug: Debug | null = null,
     ) {
         this._messages = [...messages];
         this._answers = { ...answers };
         this._backend = backend;
+        this._debug = debug;
     }
 
     private _createRoleFunction(role: 'user' | 'assistant' | 'system') {
@@ -267,9 +270,17 @@ export default class ProgramState {
     ):
         | ((messages: Message[]) => Promise<string>)
         | ((messages: Message[]) => AsyncGenerator<string, void, unknown>) {
+        // If debug and there is no prompt ID then set it
+        if (this._debug && !this._debug.debugPromptID) {
+            this._debug.debugPromptID = ulid();
+        }
+
         if (!genInput || isNonStreamingInput(genInput)) {
             return async (messages: Message[]): Promise<string> => {
-                const ans = await this._backend.gen(messages, genInput);
+                const ans = await this._backend.gen(messages, {
+                    ...genInput,
+                    debug: this._debug,
+                });
                 if (Array.isArray(ans)) {
                     throw new Error('Multiple generations not implemented.');
                 }
@@ -280,7 +291,10 @@ export default class ProgramState {
             const self = this;
             return async function* (messages: Message[]) {
                 // We expect the function to yield individual chunks, then return the final message
-                const generator = self._backend.gen(messages, genInput);
+                const generator = self._backend.gen(messages, {
+                    ...genInput,
+                    debug: self._debug,
+                });
                 let chunk: IteratorResult<GenerateRespSingle> =
                     await generator.next();
                 while (!chunk.done) {
@@ -307,6 +321,7 @@ export default class ProgramState {
                         this._backend.clone(),
                         this._messages,
                         this._answers,
+                        this._debug,
                     ),
             );
     }
@@ -321,6 +336,28 @@ export default class ProgramState {
 
     getMetaInfo(key: string): MetaInfo | undefined {
         return this._answers[key]?.meta_info;
+    }
+
+    setDebugInfo(debugInfo: Partial<Debug> | null): ProgramState {
+        if (!debugInfo) {
+            this._debug = null;
+        } else {
+            if (!this._debug) {
+                this._debug = {
+                    baseUrl: 'http://localhost',
+                    port: 56765,
+                    debugName: null,
+                    debugPromptID: null,
+                    ...debugInfo,
+                };
+            } else {
+                this._debug = {
+                    ...this._debug,
+                    ...debugInfo,
+                };
+            }
+        }
+        return this;
     }
 }
 

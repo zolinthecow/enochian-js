@@ -1,0 +1,22 @@
+{
+    "name": "enochians",
+    "description": "Enochian monorepo",
+    "scripts": {
+        "prepare": "husky",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [],
+    "author": "",
+    "packageManager": "pnpm@9.11.0",
+    "lint-staged": {
+        "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}": [
+            "biome check --write --no-errors-on-unmatched"
+        ]
+    },
+    "devDependencies": {
+        "@biomejs/biome": "^1.9.2",
+        "@swc-node/register": "^1.10.9",
+        "husky": "^9.1.6",
+        "lint-staged": "^15.2.10"
+    }
+}

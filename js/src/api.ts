@@ -1,5 +1,12 @@
 import { z } from 'zod';
 
+export type Debug = {
+    baseUrl: string;
+    port: number;
+    debugName: string | null;
+    debugPromptID: string | null;
+};
+
 /**
  * Base type for generation request input without `stream` and `choices`.
  */
@@ -28,6 +35,8 @@ type GenerateReqInputBase = {
     top_logprobs_num?: number;
     /** Whether to detokenize tokens in text in the returned logprobs. */
     return_text_in_logprobs?: boolean;
+    /** Enochian studio debug info */
+    debug: Debug | null;
 };
 
 /**
