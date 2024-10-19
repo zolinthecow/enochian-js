@@ -99,7 +99,7 @@ function PromptDetails(props: PromptDetailsProps) {
                                 request.requestTimestamp,
                             ).toLocaleString()}
                         </p>
-                        <div class="h-2" />
+                        <div class="h-4" />
                         <Show
                             when={
                                 request.responseContent !== undefined &&

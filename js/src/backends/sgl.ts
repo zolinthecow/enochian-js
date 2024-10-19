@@ -372,24 +372,6 @@ export default class SGLBackend implements Backend {
         resp: GenerateResp,
     ) {
         if (debug?.debugName) {
-            console.log('TO DEBUG!', {
-                type: debug.debugName,
-                id: debug.debugPromptID ?? undefined,
-                requests: [
-                    {
-                        id: Array.isArray(resp)
-                            ? resp[0]?.meta_info.id
-                            : resp.meta_info.id,
-                        responseContent: Array.isArray(resp)
-                            ? JSON.stringify(resp.map((l) => l.text))
-                            : resp.text,
-                        responseMetadata: Array.isArray(resp)
-                            ? JSON.stringify(resp.map((r) => r.meta_info))
-                            : resp.meta_info,
-                        responseTimestamp: new Date().toISOString(),
-                    },
-                ],
-            });
             await postStudioPrompt(
                 {
                     type: debug.debugName,

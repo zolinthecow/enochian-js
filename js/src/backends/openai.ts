@@ -1,14 +1,17 @@
 import OpenAI, { type ClientOptions } from 'openai';
+import { ulid } from 'ulid';
 import type {
+    Debug,
     GenerateReqInput,
     GenerateReqNonStreamingInput,
     GenerateReqStreamingInput,
     GenerateResp,
     GenerateRespSingle,
 } from '../api.js';
+import { postStudioPrompt } from '../debug.js';
 import { isNonStreamingInput } from '../utils.js';
-import type { Message } from './backend.interface.js';
 import type Backend from './backend.interface.js';
+import type { Message } from './backend.interface.js';
 
 export type CompletionCreateParams = Parameters<
     InstanceType<typeof OpenAI>['chat']['completions']['create']
@@ -77,13 +80,43 @@ export default class OpenAIBackend implements Backend {
                     throw new Error('Choices not implemented for OpenAI.');
                 }
 
-                const completion = await this._openai.chat.completions.create(
-                    genInputToChatCompletionInput(
-                        messages,
-                        this._modelName,
-                        genInput,
-                    ),
+                const chatCompletionInput = genInputToChatCompletionInput(
+                    messages,
+                    this._modelName,
+                    genInput,
                 );
+                const debugReqId = ulid();
+                await this._postDebugStudioRequest(
+                    genInput?.debug,
+                    chatCompletionInput,
+                    debugReqId,
+                );
+
+                const completion =
+                    await this._openai.chat.completions.create(
+                        chatCompletionInput,
+                    );
+
+                if (genInput?.debug?.debugName) {
+                    await postStudioPrompt(
+                        {
+                            type: genInput?.debug?.debugName,
+                            id: genInput?.debug?.debugPromptID ?? undefined,
+                            requests: [
+                                {
+                                    id: debugReqId,
+                                    responseContent: JSON.stringify(
+                                        completion.choices[0],
+                                    ),
+                                    responseMetadata: completion,
+                                    responseTimestamp: new Date().toISOString(),
+                                },
+                            ],
+                        },
+                        genInput.debug,
+                    );
+                }
+
                 return chatCompletionNonStreamingOutputToGenResp(completion);
             })();
         }
@@ -97,8 +130,22 @@ export default class OpenAIBackend implements Backend {
         >,
     ): AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown> {
         let accumlatedMessage = '';
+        const completionCreateParams = genInputToChatCompletionInput(
+            messages,
+            this._modelName,
+            genInput,
+        );
+
+        const debugReqId = ulid();
+
+        await this._postDebugStudioRequest(
+            genInput?.debug,
+            completionCreateParams,
+            debugReqId,
+        );
+
         const completion = await this._openai.chat.completions.create(
-            genInputToChatCompletionInput(messages, this._modelName, genInput),
+            completionCreateParams,
         );
         let resp: GenerateRespSingle | undefined;
         for await (const chunk of completion) {
@@ -111,7 +158,53 @@ export default class OpenAIBackend implements Backend {
             throw new Error('No messages generated?');
         }
         resp.text = accumlatedMessage;
+
+        if (genInput?.debug?.debugName) {
+            await postStudioPrompt(
+                {
+                    type: genInput?.debug?.debugName,
+                    id: genInput?.debug?.debugPromptID ?? undefined,
+                    requests: [
+                        {
+                            id: resp.meta_info.id,
+                            responseContent: resp.text,
+                            responseMetadata: resp.meta_info,
+                            responseTimestamp: new Date().toISOString(),
+                        },
+                    ],
+                },
+                genInput.debug,
+            );
+        }
+
         return resp;
+    }
+
+    private async _postDebugStudioRequest(
+        debug: Debug | undefined | null,
+        req: OpenAI.Chat.ChatCompletionCreateParams,
+        reqId: string,
+    ) {
+        if (debug?.debugName) {
+            await postStudioPrompt(
+                {
+                    type: debug.debugName,
+                    id: debug.debugPromptID ?? undefined,
+                    requests: [
+                        {
+                            id: reqId,
+                            requestPrompt: JSON.stringify(req.messages),
+                            requestMetadata: {
+                                ...req,
+                                messsages: undefined,
+                            },
+                            requestTimestamp: new Date().toISOString(),
+                        },
+                    ],
+                },
+                debug,
+            );
+        }
     }
 }
 
