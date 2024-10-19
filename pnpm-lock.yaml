@@ -23,7 +23,7 @@ importers:
 
   js:
     dependencies:
-      enochian-studio:
+      '@zolinthecow/enochian-studio':
         specifier: workspace:^*
         version: link:../studio
       openai:
