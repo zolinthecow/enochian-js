@@ -3,10 +3,12 @@
     "organizeImports": {
         "enabled": true
     },
+    "files": {
+        "ignore": ["js/dist", "studio/.output", "studio/.vinxi"]
+    },
     "formatter": {
         "indentStyle": "space",
-        "indentWidth": 4,
-        "ignore": ["dist"]
+        "indentWidth": 4
     },
     "javascript": {
         "formatter": {
@@ -21,7 +23,6 @@
                 "noUselessElse": "off",
                 "useTemplate": "off"
             }
-        },
-        "ignore": ["dist"]
+        }
     }
 }

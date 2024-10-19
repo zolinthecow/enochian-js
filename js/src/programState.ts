@@ -345,7 +345,7 @@ export default class ProgramState {
             if (!this._debug) {
                 this._debug = {
                     baseUrl: 'http://localhost',
-                    port: 3000,
+                    port: 56765,
                     debugName: null,
                     debugPromptID: null,
                     ...debugInfo,
