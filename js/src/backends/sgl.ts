@@ -1,8 +1,10 @@
 import { ulid } from 'ulid';
 import {
+    type Debug,
     type GenerateReqInput,
     type GenerateReqNonStreamingInput,
     type GenerateReqStreamingInput,
+    type GenerateResp,
     GenerateRespMultipleSchema,
     type GenerateRespSingle,
     GenerateRespSingleSchema,
@@ -87,6 +89,12 @@ export default class SGLBackend implements Backend {
                     const httpJson = await httpResp.json();
                     const generateResp =
                         GenerateRespSingleSchema.parse(httpJson);
+
+                    await this._postDebugStudioResponse(
+                        genInput?.debug,
+                        generateResp,
+                    );
+
                     return generateResp;
                 })();
             }
@@ -162,23 +170,7 @@ export default class SGLBackend implements Backend {
             throw new Error('No chunks were generated??');
         }
 
-        if (genInput?.debug?.debugName) {
-            await postStudioPrompt(
-                {
-                    type: genInput.debug.debugName,
-                    id: genInput.debug.debugPromptID ?? undefined,
-                    requests: [
-                        {
-                            id: prevMessage.meta_info.id,
-                            responseContent: prevMessage.text,
-                            requestMetadata: prevMessage.meta_info,
-                            requestTimestamp: new Date().toISOString(),
-                        },
-                    ],
-                },
-                genInput.debug,
-            );
-        }
+        await this._postDebugStudioResponse(genInput?.debug, prevMessage);
 
         return prevMessage;
     }
@@ -199,23 +191,7 @@ export default class SGLBackend implements Backend {
         const throwawayJson = await throwawayResponse.json();
         const throwaway = GenerateRespSingleSchema.parse(throwawayJson);
 
-        if (genInput?.debug?.debugName) {
-            await postStudioPrompt(
-                {
-                    type: genInput.debug.debugName,
-                    id: genInput.debug.debugPromptID ?? undefined,
-                    requests: [
-                        {
-                            id: throwaway.meta_info.id,
-                            responseContent: throwaway.text,
-                            requestMetadata: throwaway.meta_info,
-                            requestTimestamp: new Date().toISOString(),
-                        },
-                    ],
-                },
-                genInput.debug,
-            );
-        }
+        await this._postDebugStudioResponse(genInput?.debug, throwaway);
 
         const promptLength = throwaway.meta_info.prompt_tokens;
         // Take away one token for assistant start tag + one token for potential token healing
@@ -243,25 +219,7 @@ export default class SGLBackend implements Backend {
 
         const metaInfos = logprobsResp.map((r) => r.meta_info);
 
-        if (genInput?.debug?.debugName) {
-            await postStudioPrompt(
-                {
-                    type: genInput.debug.debugName,
-                    id: genInput.debug.debugPromptID ?? undefined,
-                    requests: [
-                        {
-                            id: logprobsResp[0]?.meta_info.id,
-                            responseContent: JSON.stringify(
-                                logprobsResp.map((l) => l.text),
-                            ),
-                            requestMetadata: JSON.stringify(metaInfos),
-                            requestTimestamp: new Date().toISOString(),
-                        },
-                    ],
-                },
-                genInput.debug,
-            );
-        }
+        await this._postDebugStudioResponse(genInput?.debug, logprobsResp);
 
         if (!metaInfos.every(isMetaInfoWithLogProbs)) {
             throw new Error('Choices request did not return logprobs.');
@@ -407,6 +365,53 @@ export default class SGLBackend implements Backend {
 
         const resp = await fetch(`${this._currentModel.url}/generate`, options);
         return resp;
+    }
+
+    private async _postDebugStudioResponse(
+        debug: Debug | undefined | null,
+        resp: GenerateResp,
+    ) {
+        if (debug?.debugName) {
+            console.log('TO DEBUG!', {
+                type: debug.debugName,
+                id: debug.debugPromptID ?? undefined,
+                requests: [
+                    {
+                        id: Array.isArray(resp)
+                            ? resp[0]?.meta_info.id
+                            : resp.meta_info.id,
+                        responseContent: Array.isArray(resp)
+                            ? JSON.stringify(resp.map((l) => l.text))
+                            : resp.text,
+                        responseMetadata: Array.isArray(resp)
+                            ? JSON.stringify(resp.map((r) => r.meta_info))
+                            : resp.meta_info,
+                        responseTimestamp: new Date().toISOString(),
+                    },
+                ],
+            });
+            await postStudioPrompt(
+                {
+                    type: debug.debugName,
+                    id: debug.debugPromptID ?? undefined,
+                    requests: [
+                        {
+                            id: Array.isArray(resp)
+                                ? resp[0]?.meta_info.id
+                                : resp.meta_info.id,
+                            responseContent: Array.isArray(resp)
+                                ? JSON.stringify(resp.map((l) => l.text))
+                                : resp.text,
+                            responseMetadata: Array.isArray(resp)
+                                ? JSON.stringify(resp.map((r) => r.meta_info))
+                                : resp.meta_info,
+                            responseTimestamp: new Date().toISOString(),
+                        },
+                    ],
+                },
+                debug,
+            );
+        }
     }
 }
 

@@ -76,6 +76,7 @@ type PromptDetailsProps = {
     prompt: ParsedPrompt;
 };
 function PromptDetails(props: PromptDetailsProps) {
+    console.log(props.prompt);
     return (
         <div class="p-4 border rounded text-wrap max-w-full">
             <h3 class="text-lg font-semibold mb-2">Prompt Details</h3>
@@ -118,7 +119,7 @@ function PromptDetails(props: PromptDetailsProps) {
                                     Response Metadata
                                 </strong>
                                 <br />
-                                {JSON.stringify(request.responseTimestamp)}
+                                {JSON.stringify(request.responseMetadata)}
                             </p>
                             <p>
                                 <strong>Timestamp:</strong>{' '}
