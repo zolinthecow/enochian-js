@@ -20,11 +20,11 @@ const startApp = () => {
 const main = () => {
     const [, , command] = process.argv;
 
-    if (command === 'run') {
+    if (command === 'studio') {
         runMigrations();
         startApp();
     } else {
-        console.log('Unknown command. Use "run" to start the app.');
+        console.log('Unknown command. Use "studio" to start the app.');
     }
 };
 

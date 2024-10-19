@@ -4,6 +4,8 @@ import Database from 'better-sqlite3';
 
 const db = new Database('enochian-studio.sqlite');
 
+const packageRoot = path.resolve(import.meta.dirname);
+
 function applyMigrations() {
     // Ensure migrations table exists
     db.exec(`
@@ -15,7 +17,7 @@ function applyMigrations() {
   `);
 
     // Get list of migration files
-    const migrationsDir = './migrations';
+    const migrationsDir = path.join(packageRoot, 'migrations');
     const migrationFiles = fs.readdirSync(migrationsDir).sort();
 
     // Get list of applied migrations
