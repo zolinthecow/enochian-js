@@ -1,4 +1,7 @@
-import type { PromptPostBody, PromptPostReturnType } from 'enochianstudio';
+import type {
+    PromptPostBody,
+    PromptPostReturnType,
+} from '@zolinthecow/enochian-studio';
 import type { Debug } from './api.js';
 
 export async function postStudioPrompt(body: PromptPostBody, debugInfo: Debug) {
