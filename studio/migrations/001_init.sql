@@ -9,8 +9,7 @@ CREATE TABLE PromptType (
 CREATE TABLE Prompt (
     id TEXT PRIMARY KEY,
     type TEXT,
-    prompts TEXT,  -- Store as JSON array
-    metadata TEXT, -- Store as JSON array
+    requests TEXT,  -- Store as JSON array
     createdAt TEXT DEFAULT (datetime('now')),
     updatedAt TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (type) REFERENCES PromptType(type)

@@ -27,6 +27,8 @@ const PostBodySchema = z.object({
     id: z.string().ulid().optional(),
     requests: PostBodyRequestSchema.array(),
 });
+export type PromptPostBody = z.infer<typeof PostBodySchema>;
+export type PromptPostReturnType = Awaited<ReturnType<typeof POST>>;
 
 export async function POST(event: APIEvent) {
     const rawBody = await event.request.json();

@@ -77,11 +77,11 @@ type PromptDetailsProps = {
 };
 function PromptDetails(props: PromptDetailsProps) {
     return (
-        <div class="p-4 border rounded">
+        <div class="p-4 border rounded text-wrap max-w-full">
             <h3 class="text-lg font-semibold mb-2">Prompt Details</h3>
             <For each={props.prompt.requests}>
                 {(request) => (
-                    <div class="p-2 border rounded my-2">
+                    <div class="p-2 border rounded my-2 text-wrap break-words overflow-hidden">
                         <p>
                             <strong class="underline">Request Prompt</strong>
                             <br />
@@ -194,7 +194,7 @@ export default function Home() {
             <Title>Prompt Studio</Title>
             <div class="container p-4">
                 <h1 class="text-2xl font-bold mb-4">Prompt Studio</h1>
-                <div class="flex gap-4">
+                <div class="grid grid-cols-[220px_minmax(0,1fr)] gap-4">
                     <PromptTypeList
                         promptTypes={allPromptTypes()}
                         onSelectType={onSelectType}

@@ -1,10 +1,9 @@
+import { ulid } from 'ulid';
 import {
     type GenerateReqInput,
     type GenerateReqNonStreamingInput,
     type GenerateReqStreamingInput,
-    type GenerateRespMultiple,
     GenerateRespMultipleSchema,
-    GenerateRespSchema,
     type GenerateRespSingle,
     GenerateRespSingleSchema,
     GetModelInfoSchema,
@@ -13,6 +12,7 @@ import {
 } from '../api.js';
 import { ChatTemplateGroup } from '../chatTemplate.js';
 import { tokenLengthNormalized } from '../choices.js';
+import { postStudioPrompt } from '../debug.js';
 import { isNonStreamingInput } from '../utils.js';
 import type { Message } from './backend.interface.js';
 import type Backend from './backend.interface.js';
@@ -77,7 +77,7 @@ export default class SGLBackend implements Backend {
                 isNonStreamingInput(genInput) &&
                 genInput?.choices !== undefined
             ) {
-                return this._selectChoice(genInput.choices, messages);
+                return this._selectChoice(genInput.choices, messages, genInput);
             } else {
                 return (async () => {
                     const httpResp = await this._sendGenerateRequest(
@@ -161,22 +161,62 @@ export default class SGLBackend implements Backend {
         if (!prevMessage) {
             throw new Error('No chunks were generated??');
         }
-        console.log('###### RETURNING LAST VALUE #########', prevMessage);
+
+        if (genInput?.debug?.debugName) {
+            await postStudioPrompt(
+                {
+                    type: genInput.debug.debugName,
+                    id: genInput.debug.debugPromptID ?? undefined,
+                    requests: [
+                        {
+                            id: prevMessage.meta_info.id,
+                            responseContent: prevMessage.text,
+                            requestMetadata: prevMessage.meta_info,
+                            requestTimestamp: new Date().toISOString(),
+                        },
+                    ],
+                },
+                genInput.debug,
+            );
+        }
+
         return prevMessage;
     }
 
     private async _selectChoice(
         choices: string[],
         messages: Message[],
+        genInput?: Omit<GenerateReqInput, 'text' | 'input_ids' | 'choices'>,
     ): Promise<GenerateRespSingle> {
         // First cache the prefix
         const throwawayResponse = await this._sendGenerateRequest(messages, {
             sampling_params: {
                 max_new_tokens: 0,
             },
+            debug: genInput?.debug ?? null,
         });
+
         const throwawayJson = await throwawayResponse.json();
         const throwaway = GenerateRespSingleSchema.parse(throwawayJson);
+
+        if (genInput?.debug?.debugName) {
+            await postStudioPrompt(
+                {
+                    type: genInput.debug.debugName,
+                    id: genInput.debug.debugPromptID ?? undefined,
+                    requests: [
+                        {
+                            id: throwaway.meta_info.id,
+                            responseContent: throwaway.text,
+                            requestMetadata: throwaway.meta_info,
+                            requestTimestamp: new Date().toISOString(),
+                        },
+                    ],
+                },
+                genInput.debug,
+            );
+        }
+
         const promptLength = throwaway.meta_info.prompt_tokens;
         // Take away one token for assistant start tag + one token for potential token healing
         const logprobStartLength = Math.max(promptLength - 2, 0);
@@ -195,11 +235,34 @@ export default class SGLBackend implements Backend {
                 return_logprob: true,
                 return_text_in_logprobs: true,
                 logprob_start_len: logprobStartLength,
+                debug: genInput?.debug ?? null,
             },
         );
         const logprobsJson = await logprobsResponse.json();
         const logprobsResp = GenerateRespMultipleSchema.parse(logprobsJson);
+
         const metaInfos = logprobsResp.map((r) => r.meta_info);
+
+        if (genInput?.debug?.debugName) {
+            await postStudioPrompt(
+                {
+                    type: genInput.debug.debugName,
+                    id: genInput.debug.debugPromptID ?? undefined,
+                    requests: [
+                        {
+                            id: logprobsResp[0]?.meta_info.id,
+                            responseContent: JSON.stringify(
+                                logprobsResp.map((l) => l.text),
+                            ),
+                            requestMetadata: JSON.stringify(metaInfos),
+                            requestTimestamp: new Date().toISOString(),
+                        },
+                    ],
+                },
+                genInput.debug,
+            );
+        }
+
         if (!metaInfos.every(isMetaInfoWithLogProbs)) {
             throw new Error('Choices request did not return logprobs.');
         }
@@ -284,9 +347,11 @@ export default class SGLBackend implements Backend {
         messages: Message[][] | Message[],
         genInput?: Omit<GenerateReqInput, 'text' | 'input_ids' | 'choices'>,
     ): Promise<Response> {
-        const reqInput: GenerateReqInput = {
+        const reqId = ulid();
+        const reqInput: Omit<GenerateReqInput, 'debug'> = {
             text: 'temp',
             ...genInput,
+            rid: reqId,
             // Default sampling params:
             sampling_params: {
                 max_new_tokens: 128,
@@ -319,7 +384,27 @@ export default class SGLBackend implements Backend {
             },
             body: JSON.stringify(reqInput),
         };
-        console.log(options);
+
+        if (genInput?.debug?.debugName) {
+            await postStudioPrompt(
+                {
+                    type: genInput.debug.debugName,
+                    id: genInput.debug.debugPromptID ?? undefined,
+                    requests: [
+                        {
+                            id: reqId,
+                            requestPrompt: Array.isArray(reqInput.text)
+                                ? JSON.stringify(reqInput.text)
+                                : reqInput.text,
+                            requestMetadata: { ...reqInput, text: undefined },
+                            requestTimestamp: new Date().toISOString(),
+                        },
+                    ],
+                },
+                genInput.debug,
+            );
+        }
+
         const resp = await fetch(`${this._currentModel.url}/generate`, options);
         return resp;
     }
