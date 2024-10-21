@@ -118,7 +118,7 @@ export default class ProgramState {
     private _processRoleStringTemplate(
         role: 'system' | 'user' | 'assistant',
         strings: TemplateStringsArray,
-        ...values: (GenAsyncFunctionReturnType | string)[]
+        ...values: (GenAsyncFunctionReturnType | Promise<string> | string)[]
     ): Promise<string>;
     private _processRoleStringTemplate(
         role: 'system' | 'user' | 'assistant',
@@ -126,6 +126,7 @@ export default class ProgramState {
         ...values: (
             | GenAsyncGeneratorReturnType
             | GenAsyncFunctionReturnType
+            | Promise<string>
             | string
         )[]
     ): AsyncGenerator<string>;
@@ -134,10 +135,11 @@ export default class ProgramState {
         strings: TemplateStringsArray,
         ...values:
             | string[]
-            | (GenAsyncFunctionReturnType | string)[]
+            | (GenAsyncFunctionReturnType | Promise<string> | string)[]
             | (
                   | GenAsyncGeneratorReturnType
                   | GenAsyncFunctionReturnType
+                  | Promise<string>
                   | string
               )[]
     ): string | Promise<string> | AsyncGenerator<string> {
@@ -168,6 +170,13 @@ export default class ProgramState {
                             ]);
                             curMessage.content += generatedText;
                             yield generatedText;
+                        } else if (value instanceof Promise) {
+                            let awaited = await value;
+                            if (typeof awaited !== 'string') {
+                                awaited = JSON.stringify(awaited);
+                            }
+                            curMessage.content += awaited;
+                            yield awaited;
                         } else if (typeof value === 'string') {
                             curMessage.content += value;
                             yield value;
@@ -175,7 +184,9 @@ export default class ProgramState {
                     }
                 }
             }.call(this);
-        } else if (values.some((v) => isGenAsyncFunction(v))) {
+        } else if (
+            values.some((v) => isGenAsyncFunction(v) || v instanceof Promise)
+        ) {
             // Should only be async if there is an async function inside `values`.
             const processTemplate = async (): Promise<string> => {
                 const curMessage: Message = {
@@ -193,6 +204,12 @@ export default class ProgramState {
                             ]);
                             // Should trim out the generated end tokens
                             curMessage.content += generatedText;
+                        } else if (value instanceof Promise) {
+                            let awaited = await value;
+                            if (typeof awaited !== 'string') {
+                                awaited = JSON.stringify(awaited);
+                            }
+                            curMessage.content += awaited;
                         } else if (typeof value === 'string') {
                             curMessage.content += value;
                         }
