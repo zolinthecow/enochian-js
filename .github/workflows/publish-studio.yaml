@@ -45,4 +45,4 @@ jobs:
       - name: Publish to NPM
         run: |
           pushd studio
-          pnpm publish
+          pnpm publish --no-git-checks
