@@ -21,7 +21,7 @@
     "author": "Colin Zhao",
     "repository": {
         "type": "git",
-        "url": "https://github.com/zolinthecow/enochian-js.git"
+        "url": "https://github.com/zolinthecow/enochian-js/tree/master/studio"
     },
     "dependencies": {
         "@kobalte/core": "^0.13.7",

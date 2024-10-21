@@ -1,21 +1,16 @@
+import assert from 'node:assert';
 import OpenAI, { type ClientOptions } from 'openai';
 import { ulid } from 'ulid';
 import type {
     Debug,
-    GenerateReqInput,
     GenerateReqNonStreamingInput,
     GenerateReqStreamingInput,
-    GenerateResp,
     GenerateRespSingle,
 } from '../api.js';
 import { postStudioPrompt } from '../debug.js';
 import { isNonStreamingInput } from '../utils.js';
 import type Backend from './backend.interface.js';
 import type { Message } from './backend.interface.js';
-
-export type CompletionCreateParams = Parameters<
-    InstanceType<typeof OpenAI>['chat']['completions']['create']
->;
 
 export type OpenAISetModelParams = {
     url?: string;
@@ -68,6 +63,10 @@ export default class OpenAIBackend implements Backend {
     ):
         | Promise<GenerateRespSingle>
         | AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown> {
+        assert(
+            genInput?.sampling_params?.n !== 1,
+            'Generating multiple responses is unimplemented.',
+        );
         if (genInput && !isNonStreamingInput(genInput)) {
             return this._streamResponse(messages, genInput);
         } else {
