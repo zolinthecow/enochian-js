@@ -64,7 +64,7 @@ export default class OpenAIBackend implements Backend {
         | Promise<GenerateRespSingle>
         | AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown> {
         assert(
-            genInput?.sampling_params?.n !== 1,
+            !genInput?.sampling_params?.n || genInput?.sampling_params?.n === 1,
             'Generating multiple responses is unimplemented.',
         );
         if (genInput && !isNonStreamingInput(genInput)) {

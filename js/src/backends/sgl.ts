@@ -73,7 +73,7 @@ export default class SGLBackend implements Backend {
         | Promise<GenerateRespSingle>
         | AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown> {
         assert(
-            genInput?.sampling_params?.n !== 1,
+            !genInput?.sampling_params?.n || genInput?.sampling_params?.n === 1,
             'Generating multiple responses is unimplemented.',
         );
         if (genInput && !isNonStreamingInput(genInput)) {
@@ -310,7 +310,10 @@ export default class SGLBackend implements Backend {
         messages: Message[][] | Message[],
         genInput?: Omit<GenerateReqInput, 'text' | 'input_ids' | 'choices'>,
     ): Promise<Response> {
-        const reqId = ulid();
+        let reqId: string | string[] = genInput?.rid ?? ulid();
+        if (Array.isArray(messages[0])) {
+            reqId = genInput?.rid ?? messages.map((_) => ulid());
+        }
         const reqInput: Omit<GenerateReqInput, 'debug'> = {
             text: 'temp',
             ...genInput,
@@ -353,16 +356,24 @@ export default class SGLBackend implements Backend {
                 {
                     type: genInput.debug.debugName,
                     id: genInput.debug.debugPromptID ?? undefined,
-                    requests: [
-                        {
-                            id: reqId,
-                            requestPrompt: Array.isArray(reqInput.text)
-                                ? JSON.stringify(reqInput.text)
-                                : reqInput.text,
-                            requestMetadata: { ...reqInput, text: undefined },
-                            requestTimestamp: new Date().toISOString(),
-                        },
-                    ],
+                    requests: Array.isArray(reqInput.text)
+                        ? reqInput.text.map((t, i) => ({
+                              id: (reqId as string[])[i],
+                              requestPrompt: t,
+                              requestMetadata: { ...reqInput, text: undefined },
+                              requestTimestamp: new Date().toISOString(),
+                          }))
+                        : [
+                              {
+                                  id: reqId,
+                                  requestPrompt: reqInput.text,
+                                  requestMetadata: {
+                                      ...reqInput,
+                                      text: undefined,
+                                  },
+                                  requestTimestamp: new Date().toISOString(),
+                              },
+                          ],
                 },
                 genInput.debug,
             );

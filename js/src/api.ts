@@ -23,7 +23,7 @@ type GenerateReqInputBase = {
     /** The sampling parameters. */
     sampling_params?: SamplingParams;
     /** The request id. */
-    rid?: string;
+    rid?: string | string[];
     /** Whether to return logprobs. */
     return_logprob?: boolean;
     /**
