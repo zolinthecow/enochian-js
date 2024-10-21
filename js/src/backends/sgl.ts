@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import { ulid } from 'ulid';
 import {
     type Debug,
@@ -71,6 +72,10 @@ export default class SGLBackend implements Backend {
     ):
         | Promise<GenerateRespSingle>
         | AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown> {
+        assert(
+            genInput?.sampling_params?.n !== 1,
+            'Generating multiple responses is unimplemented.',
+        );
         if (genInput && !isNonStreamingInput(genInput)) {
             return this._streamResponse(messages, genInput);
         } else {

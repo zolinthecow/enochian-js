@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import { ulid } from 'ulid';
 import type {
     Debug,
@@ -117,7 +118,7 @@ export default class ProgramState {
     private _processRoleStringTemplate(
         role: 'system' | 'user' | 'assistant',
         strings: TemplateStringsArray,
-        ...values: (GenAsyncFunctionReturnType | string)[]
+        ...values: (GenAsyncFunctionReturnType | Promise<string> | string)[]
     ): Promise<string>;
     private _processRoleStringTemplate(
         role: 'system' | 'user' | 'assistant',
@@ -125,6 +126,7 @@ export default class ProgramState {
         ...values: (
             | GenAsyncGeneratorReturnType
             | GenAsyncFunctionReturnType
+            | Promise<string>
             | string
         )[]
     ): AsyncGenerator<string>;
@@ -133,10 +135,11 @@ export default class ProgramState {
         strings: TemplateStringsArray,
         ...values:
             | string[]
-            | (GenAsyncFunctionReturnType | string)[]
+            | (GenAsyncFunctionReturnType | Promise<string> | string)[]
             | (
                   | GenAsyncGeneratorReturnType
                   | GenAsyncFunctionReturnType
+                  | Promise<string>
                   | string
               )[]
     ): string | Promise<string> | AsyncGenerator<string> {
@@ -167,6 +170,13 @@ export default class ProgramState {
                             ]);
                             curMessage.content += generatedText;
                             yield generatedText;
+                        } else if (value instanceof Promise) {
+                            let awaited = await value;
+                            if (typeof awaited !== 'string') {
+                                awaited = JSON.stringify(awaited);
+                            }
+                            curMessage.content += awaited;
+                            yield awaited;
                         } else if (typeof value === 'string') {
                             curMessage.content += value;
                             yield value;
@@ -174,7 +184,9 @@ export default class ProgramState {
                     }
                 }
             }.call(this);
-        } else if (values.some((v) => isGenAsyncFunction(v))) {
+        } else if (
+            values.some((v) => isGenAsyncFunction(v) || v instanceof Promise)
+        ) {
             // Should only be async if there is an async function inside `values`.
             const processTemplate = async (): Promise<string> => {
                 const curMessage: Message = {
@@ -192,6 +204,12 @@ export default class ProgramState {
                             ]);
                             // Should trim out the generated end tokens
                             curMessage.content += generatedText;
+                        } else if (value instanceof Promise) {
+                            let awaited = await value;
+                            if (typeof awaited !== 'string') {
+                                awaited = JSON.stringify(awaited);
+                            }
+                            curMessage.content += awaited;
                         } else if (typeof value === 'string') {
                             curMessage.content += value;
                         }
@@ -274,7 +292,10 @@ export default class ProgramState {
         if (this._debug && !this._debug.debugPromptID) {
             this._debug.debugPromptID = ulid();
         }
-
+        assert(
+            genInput?.sampling_params?.n !== 1,
+            'Generating multiple responses is unimplemented.',
+        );
         if (!genInput || isNonStreamingInput(genInput)) {
             return async (messages: Message[]): Promise<string> => {
                 const ans = await this._backend.gen(messages, {
@@ -357,6 +378,32 @@ export default class ProgramState {
                 };
             }
         }
+        return this;
+    }
+
+    beginDebugRegion(debugInfo: { debugName: string; debugPromptID?: string }) {
+        if (!this._debug) {
+            this._debug = {
+                baseUrl: 'http://localhost',
+                port: 56765,
+                debugName: null,
+                debugPromptID: null,
+            };
+        }
+        this._debug = {
+            ...this._debug,
+            ...debugInfo,
+        };
+        return this;
+    }
+
+    endDebugRegion(): ProgramState {
+        if (!this._debug) return this;
+        this._debug = {
+            ...this._debug,
+            debugName: null,
+            debugPromptID: null,
+        };
         return this;
     }
 }

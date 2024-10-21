@@ -17,7 +17,7 @@
     "author": "Colin Zhao",
     "repository": {
         "type": "git",
-        "url": "https://github.com/zolinthecow/enochian-js.git"
+        "url": "https://github.com/zolinthecow/enochian-js/tree/master/js"
     },
     "license": "MIT",
     "devDependencies": {
