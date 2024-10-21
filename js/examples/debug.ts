@@ -9,9 +9,9 @@ export async function run() {
         question2: string,
     ): Promise<[string | undefined, string | undefined]> {
         await s.setModel('http://localhost:30000');
-        s.setDebugInfo({
-            debugName: 'multiTurnQuestion',
-        });
+
+        // The requests sent inside the debug region will be logged and grouped under the debugName provided
+        s.beginDebugRegion({ debugName: 'multiTurnQuestion' });
         await s
             .add(s.system`You are a helpful assistant.`)
             .add(s.user`${question1}`)
@@ -19,6 +19,8 @@ export async function run() {
         await s
             .add(s.user`${question2}`)
             .add(s.assistant`No problem! ${s.gen('answer2')}`);
+        s.endDebugRegion();
+
         return [s.get('answer1'), s.get('answer2')];
     }
 

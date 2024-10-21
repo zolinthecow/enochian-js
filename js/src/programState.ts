@@ -359,6 +359,32 @@ export default class ProgramState {
         }
         return this;
     }
+
+    beginDebugRegion(debugInfo: { debugName: string; debugPromptID?: string }) {
+        if (!this._debug) {
+            this._debug = {
+                baseUrl: 'http://localhost',
+                port: 56765,
+                debugName: null,
+                debugPromptID: null,
+            };
+        }
+        this._debug = {
+            ...this._debug,
+            ...debugInfo,
+        };
+        return this;
+    }
+
+    endDebugRegion(): ProgramState {
+        if (!this._debug) return this;
+        this._debug = {
+            ...this._debug,
+            debugName: null,
+            debugPromptID: null,
+        };
+        return this;
+    }
 }
 
 type GenAsyncFunctionReturnType = (messages: Message[]) => Promise<string>;
