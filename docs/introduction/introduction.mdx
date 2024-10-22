@@ -1,0 +1,58 @@
+---
+title: 'Introduction'
+description: 'A way to program LLMs in a more ergonomic fashion'
+---
+
+*Enochian is a javascript library for ergonomic programming of LLM workflows* It alows you to write use javascript control flow, to "program" the prompts being submitted to an LLM.
+Some of it's features include:
+- First-class Typescript support
+- Support for both local and hosted model providers
+- Behind-the-scenes workflow state management
+- Automatic chat-template applying
+- Guided generation
+- Logit-based choices
+
+## Why Enochian?
+
+There's a few great LLM interaction libraries out there--lanchain.js, priompt, and even just the OpenAI node SDK. So why should you choose Enochian?
+
+Enochian delivers on the same fundamental expectations that you'd expect of any LLM interaction library, from easily crafting requests to structured generation.
+
+It also goes above-and-beyond to raise the bar. The fundamental thesis that Enochian is built on is that all LLM interactions are part of a *workflow*.
+LLMs are the most useful when calls are chained together to achieve some bigger task, for example parsing a user query for online shopping, then searching the web for relevant links,
+then scraping the website it finds and finally delivering a summarization of what it found.
+Programming LLMs should be like programming anything else--a stateful and expressive execution plan. That's what Enochian strives to support.
+
+Enochian manages the state of your LLM program under the hood, so you can easily add messages to it as you go, allowing you to avoid messy code where you just loop through context
+and figure out what to include.
+
+```typescript
+const s = new ProgramState(new OpenAIBackend({ apiKey: process.env.OPENAI_KEY }));
+s.setModel({ modelName: 'gpt-4o-mini' });
+await s
+    .add(s.system`You are a helpful assistant.`)
+    .add(s.user`Tell me a joke.`)
+    .add(s.assistant`${s.gen('joke')}`);
+console.log(s.get('joke'));
+```
+
+## First-class Typescript support
+
+Enochian also strives to deliver the best-in-class DX for LLM programming libraries. Many libraries are built with typescript or at least provide types for their API, but few are built with
+typescript fully in mind. Enochian knows the full state of your program at any point in time, including the answers that were generated and the backend it's currently pointed to. You'll never
+have to guess which parameters you should be passing into a function, your IDE will always tell you.
+
+## Useful abstractions
+
+Enochian offers just the right level of abstraction. It provides useful primitives for you to write your workflow without hiding any details away from you. A few examples include
+- Logit-based choices to force the LLM to choose the best out of provided options
+- Sentence generation to limit the LLM to generate a variable number of sentences (planned)
+- Constrained decoding to force the LLM to follow any pattern you want (planned)
+
+## Acknowledgements
+
+The design for this was inspired from many amazing libraries that came before it
+- [SGlang](https://github.com/sgl-project/sglang)
+- [Priompt](https://github.com/anysphere/priompt)
+
+Now, enough with the overview. Let's get started!

@@ -1,0 +1,211 @@
+---
+title: 'ProgramState'
+---
+
+import { ViewInGithub } from '/snippets/view-in-github.mdx';
+
+<ViewInGithub link={"https://github.com/zolinthecow/enochian-js/blob/master/js/src/programState.ts"} />
+
+The `ProgramState` class is the core object of Enochian. The core functions are [`.add`](/api-reference/program-state#add), [`.user`](/api-reference/program-state#user-assitant-system),
+[`.assistant`](/api-reference/program-state#user-assitant-system), [`.system`](/api-reference/program-state#user-assitant-system), and [`.gen`](/api-reference/program-state#gen). The idea is that the `ProgramState` should only be affected
+by [`.add`](/api-reference/program-state#add), and the other role functions and generate functions can use the state of the `ProgramState`
+but should never change any of it's values.
+
+## `.add`
+**Parameters**:
+- `message: Message` or
+- `message: Promise<Message>` or
+- `message: AsyncGenerator<Message, Message, undefined>`
+
+**Returns**:
+- `ProgramState` or
+- `Promise<ProgramState>` or
+- `AsyncGenerator<Message>`
+
+**Types Referenced**:
+- [`Message`](https://github.com/zolinthecow/enochian-js/blob/af2c07b982b2034e1f299b4d938539a94e5cda72/js/src/programState.ts#L16)
+
+Adds a `Message` object to the internal state of the `ProgramState`.
+It can either be a `Message`, a `Promise<Message>`, or an `AsyncGenerator<Message, Message, undefined>`.
+
+If it's just a `Message` then the [`.add`](/api-reference/program-state#add) function will be synchronous and return a `this`, so you can
+chain together calls.
+
+If it's a `Promise<Message>`, it will `await` on the `Message`, add it
+to it's internal state, then return a `Promise<this>`. This is usually when you add a role
+template with a [`.gen`](/api-reference/program-state#gen) inside of it, but it can be any arbitrary function that returns a
+`Promise<Message>`.
+
+Lastly, if it's an `AsyncGenerator<Message, Message, undefined>`
+then it will yield results until the generator is done, then add it to the internal state.
+
+## `.user`, `.assitant`, `.system`
+**Parameters**:
+- `strings: TemplateStringsArray, ...values: string[]` or
+- `strings: TemplateStringsArray, ...values: ((messages: Message[]) =>
+Promise<string> | string[])` or
+- `strings: TemplateStringsArray), ...values: ((messages: Message[]) =>
+AsyncGenerator<string, void, unknown> | (messages: Message[])
+=> Promise<string> | string[]`
+
+**Returns**:
+- `Message` or
+- `Promise<Message>` or
+- `AsyncGenerator<Message>`
+
+**Types Referenced**:
+- [`Message`](https://github.com/zolinthecow/enochian-js/blob/af2c07b982b2034e1f299b4d938539a94e5cda72/js/src/programState.ts#L16)
+
+Creates a `Message` object with a role corresponding to the function name. The template function
+can take in interpolated values of `string`, `(messages: Message[]) => Promise<string>`,
+and `(messages: Message[]) => AsyncGenerator<string, void, unknown>`.
+
+If the interpolated values only consist of `string`, then the role function will be synchronous
+and return a `Message`. In these cases, the function can be passed to [`.add`](/api-reference/program-state#add) and the [`.add`](/api-reference/program-state#add)
+function will be synchronous as well.
+
+If the interpolated values have any `(messages: Message[]) => Promise<string>`, then it will
+call that function and await it's result. For now, it expects that function to **always**
+be the [`.gen`](/api-reference/program-state#gen) function.
+
+If the interpolated values have any `(messages: Message[]) => AsyncGenerator<string, void, unknown>`,
+then it will return an `AsyncGenerator<Message>` and yield the chunks as they come in. It expects
+the function to **always** be the [`.gen`](/api-reference/program-state#gen) function that was called with `stream: true`.
+
+The goal of the role functions is to return a `Message` without affecting the state of the
+`ProgramState`. If you want to add the `Message`, it can only be done with [`.add`](/api-reference/program-state#add) and that is
+intentional.
+
+## `.gen`
+**Parameters**
+- `answerKey: string, genInput?: Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>` or
+- `answerKey: string, genInput?: Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>`
+
+**Returns**
+- `(messages: Message[]) => Promise<string>` or
+- `(messages: Message[]) => AsyncGenerator<string, void, unknown>`
+
+**Types Referenced**:
+- [`GenerateReqNonStreamingInput`](https://github.com/zolinthecow/enochian-js/blob/af2c07b982b2034e1f299b4d938539a94e5cda72/js/src/api.ts#L55)
+- [`GenerateReqStreamingInput`](https://github.com/zolinthecow/enochian-js/blob/af2c07b982b2034e1f299b4d938539a94e5cda72/js/src/api.ts#L65)
+- [`Message`](https://github.com/zolinthecow/enochian-js/blob/af2c07b982b2034e1f299b4d938539a94e5cda72/js/src/programState.ts#L16)
+
+The `.gen` function is basically like OpenAI's `.chat.completions` api. The only difference
+is that calling it returns a function that calls the generate endpoint. The reason it's done
+like this is that when you interpolate the `.gen` call inside a role function, you want the
+messages that `.gen` is passing to the generate endpoint to be up to date with the currently
+processing string template.
+
+For example, if the string template looks something like ```s.assistant`Sure! Here's your ${s.gen(...)}`;```,
+then the interpolated `.gen` should know that it should prepend `"Sure! Here's your "` to the
+assistant message. If `.gen` simply return a `Promise<string>`, then it would start processing
+with the state of the `ProgramState` at the moment it was called, and not when it should actually
+start processing.
+
+## `.setModel`
+**Parameters**:
+- `url: string` (SGLang model params) or
+- `{ url?: string, modelName?: ChatModel }` (OpenAI model params)
+
+**Returns**
+- `Promise<void>` or
+- `void`
+
+**Types Referenced**:
+- [`ChatModel`](https://github.com/openai/openai-node/blob/d08bf1a8fa779e6a9349d92ddf65530dd84e686d/src/resources/chat/chat.ts#L11)
+
+The model params are different per backend. SGLang's backend only serves one model per endponit,
+so there's no need to pass in a `modelName` param.
+
+OpenAI's backend doesn't necessarily need the url as it'll default to OpenAI's API endpoint,
+but it should always have a model name.
+
+## `.setBackend`
+**Parameters**
+- `backend: Backend`
+
+**Returns**
+- `ProgramState`
+
+**Types Referenced**:
+- `Backend`
+
+Set the backend of the `ProgramState`
+
+## `.fork`
+**Parameters**
+- `_numForks?: number`
+
+**Returns**
+- `ProgramState[]`
+
+Deep copies the program state and returns `_numForks` copies. If `_numForks` is not passed in
+or is less than 0, it forks once.
+
+## `.get`
+**Parameters**
+- `key: string`
+
+**Returns**
+- `string | undefined`
+
+Gets the value that was generated for a given `answerKey` that was passed into [`.gen`](/api-reference/program-state#gen). Returns
+undefined if the `key` does not exist.
+
+## `.getPrompt`
+**Parameters**
+None
+
+**Returns**
+- `string`
+
+Applies the chat template to the current messages in the `ProgramState` and returns it.
+
+## `.getMetaInfo`
+**Parameters**
+- `key: string`
+
+**Returns**
+- `MetaInfo | undefined`
+
+**Types Referenced**:
+- [`MetaInfo`](https://github.com/zolinthecow/enochian-js/blob/af2c07b982b2034e1f299b4d938539a94e5cda72/js/src/api.ts#L188)
+
+Gets the meta info for a given `answerKey` that was passed into [`.gen`](/api-reference/program-state#gen). Returns undefined if
+the `key` does not exist.
+
+## `.setDebugInfo`
+**Parameters**
+- `debugInfo: Partial<Debug> | null`
+
+**Returns**
+- `ProgramState`
+
+**Types Referenced**:
+- [`Debug`](https://github.com/zolinthecow/enochian-js/blob/af2c07b982b2034e1f299b4d938539a94e5cda72/js/src/api.ts#L3)
+
+Set's the debug info for enochian-studio to log. In most cases you should prefer [`.beginDebugRegion`](/api-reference/program-state#)
+and [`.endDebugRegion`](/api-reference/program-state#endDebugRegion) though, this one should be reserved for changing the url or port that
+enochian-studio is served from.
+
+## `.beginDebugRegion`
+**Parameters**
+- `debugInfo: { debugName: string; debugPromptID?: string }`
+
+**Returns**
+- `ProgramState`
+
+This marks the beginning of a debug region in your code. Any calls to the `generate` endpoint
+will be logged and grouped under the `debugName`.
+
+Most of the time you will never have to set the `debugPromptID` as it's automatically generated
+if it's not passed in, but you can if you want to.
+
+## `.endDebugRegion`
+**Parameters**
+None
+
+**Returns**
+- `ProgramState`
+
+This marks the end of a debug region.
