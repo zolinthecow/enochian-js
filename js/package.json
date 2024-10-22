@@ -6,7 +6,7 @@
     "type": "module",
     "scripts": {
         "build": "tsc -p tsconfig.build.json",
-        "ci": "pnpm build && pnpm check-format && pnpm check-exports",
+        "ci": "pnpm test && pnpm build && pnpm check-format && pnpm check-exports",
         "format": "biome check --write --no-errors-on-unmatched",
         "check-format": "biome check --no-errors-on-unmatched",
         "check-exports": "attw --pack . --ignore-rules=cjs-resolves-to-esm",
