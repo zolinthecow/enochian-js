@@ -35,7 +35,7 @@ jobs:
       - name: run CI
         env:
           SGL_IP: ${{ secrets.SGL_IP }}
-          SGL_PORt: ${{ secrets.SGL_PORT }}
+          SGL_PORT: ${{ secrets.SGL_PORT }}
         run: |
           pushd js
           pnpm run ci
