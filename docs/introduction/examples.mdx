@@ -1,0 +1,109 @@
+---
+title: 'Examples'
+description: 'Quick snippets showing some features of Enochian'
+---
+
+## Backend Swapping
+
+If you want to do mixture of agents or something along those lines, you can dynamically swap between backends.
+
+```typescript
+import ProgramState, { OpenAIBackend } from 'enochian-js';
+
+const s = new ProgramState();
+
+await s.setModel('http://localhost:30000');
+await s
+    .add(s.system`You are a helpful assistant.`)
+    .add(s.user`Tell me a joke`)
+    .add(s.assistant`${s.gen('answer1')}`);
+
+s.setBackend(
+    new OpenAIBackend({ apiKey: process.env.OPENAI_KEY }),
+).setModel({ modelName: 'gpt-4o' });
+
+await s
+    .add(s.user`Tell me a better one`)
+    .add(s.assistant`No problem! ${s.gen('answer2')}`);
+console.log(s.get('answer1'), '\n------\n', s.get('answer2'));
+```
+
+## Choices
+
+Force the LLM to pick between multiple choices. It's implemented by implemented by computing the [token-length normalized log probabilities](https://blog.eleuther.ai/multiple-choice-normalization/) of all choices and selecting the one with the highest probability (full credit goes to the sglang folks for this).
+
+```typescript
+import ProgramState from 'enochian-js';
+
+const s = new ProgramState();
+
+await s.setModel('http://localhost:30000');
+await s
+    .add(s.system`You are an animal.`)
+    .add(s.user`What are you?`)
+    .add(
+        s.assistant`I am a ${s.gen('answer', { choices: ['hippopotamus', 'giraffe'] })}`,
+    );
+
+console.log(s.get('answer'));
+```
+
+## Forking
+
+Sometimes, you can reach a state in your program which is parallelizable.
+
+```typescript
+import ProgramState from 'enochian-js';
+
+const s = new ProgramState();
+await s.setModel('http://localhost:30000');
+
+s.add(s.system`You are a helpful assistant.`)
+    .add(s.user`How can I stay healthy?`)
+    .add(s.assistant`Here are two tips for staying healthy:
+        1. Balanced Diet. 2. Regular Exercise.\n\n`);
+
+const forks = s.fork(2);
+await Promise.all(
+    forks.map((f, i) =>
+        f
+            .add(
+                f.user`Now, expand tip ${(i + 1).toString()} into a paragraph.`,
+            )
+            .add(
+                f.assistant`${f.gen('detailed_tip', { sampling_params: { max_new_tokens: 256 } })}`,
+            ),
+    ),
+);
+
+await s
+    .add(s.user`Please expand.`)
+    .add(s.assistant`Tip 1: ${forks[0]?.get('detailed_tip') ?? ''}
+        Tip 2: ${forks[1]?.get('detailed_tip') ?? ''}
+        In summary, ${s.gen('summary')}`);
+
+console.log(s.get('summary'));
+```
+
+In this case, the expanded tips for 1 and 2 don't depend on each other, so we can generate both at the same time using the `fork` function.
+Then, we can join them back into the parent `ProgramState` and continue generating from there.
+
+## Streaming
+
+Enochian of course also supports streaming, so you can use it for a chat application frontend.
+
+```typescript
+import ProgramState from '../src/programState.js';
+
+const s = new ProgramState();
+
+await s.setModel('http://localhost:30000');
+const gen = s
+    .add(s.system`You are a helpful assistant.`)
+    .add(s.user`Tell me a joke`)
+    .add(s.assistant`${s.gen('answer1', { stream: true })}`);
+for await (const chunk of gen) {
+    console.log(chunk.content);
+}
+console.log(s.get('answer1'), s.getMetaInfo('answer1'));
+```

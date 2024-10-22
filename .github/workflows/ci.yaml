@@ -44,3 +44,6 @@ jobs:
           pushd studio
           pnpm run ci
           popd
+          pushd docs
+          pnpm run ci
+          popd

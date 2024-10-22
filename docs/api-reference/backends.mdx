@@ -1,0 +1,56 @@
+---
+title: 'Backends'
+---
+
+import { ViewInGithub } from '/snippets/view-in-github.mdx';
+
+<ViewInGithub link={"https://github.com/zolinthecow/enochian-js/blob/master/js/src/backends"} />
+
+A `Backend` is an LLM provider, think OpenAI, Anthropic, etc. Enochian provides integrations
+with the large providers as well as SGLang for local models.
+
+## SGLBackend
+[SGLang](https://github.com/sgl-project/sglang) is a fast local LLM inference engine. Enochian
+is also heavily inspired by their frontend language!
+
+### `setModel`
+**Parameters**
+- `url: string`
+
+**Returns**
+- `Promise<void>`
+
+Setting the model in SGLang is asynchronous because it has to send a request to their URL to
+get the name of the model hosted on it.
+
+### Example
+
+```typescript
+const s = new ProgramState();
+s.setBackend(new SGLBackend());
+await s.setModel('http://localhost:30000');
+```
+Note that `SGLBackend` is the default backend for Enochian, so unless you are swapping from
+a different backend back to `SGLBackend` you won't need to do the `setBackend` call.
+
+## OpenAIBackend
+
+### `setModel`
+**Parameters**
+- `{url?: string, modelName?: ChatModel}`
+
+**Returns**
+- `Promise<void>`
+
+**Types Referenced**:
+- [`ChatModel`](https://github.com/openai/openai-node/blob/d08bf1a8fa779e6a9349d92ddf65530dd84e686d/src/resources/chat/chat.ts#L11)
+
+Set the model and/or baseURL of the OpenAI endpoint.
+
+### Example
+
+```typescript
+const s = new ProgramState(
+    new OpenAIBackend({ apiKey: process.env.OPENAI_API_KEY }),
+);
+```

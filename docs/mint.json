@@ -15,6 +15,9 @@
             "to": "#AC9033"
         }
     },
+    "modeToggle": {
+        "default": "light"
+    },
     "topbarLinks": [
         {
             "name": "Support",
@@ -28,10 +31,28 @@
             "url": "https://github.com/zolinthecow/enochian-js"
         }
     ],
+    "tabs": [
+        {
+            "name": "API Reference",
+            "url": "api-reference"
+        }
+    ],
     "navigation": [
         {
             "group": "Introduction",
-            "pages": ["introduction/enochian", "introduction/quickstart"]
+            "pages": [
+                "introduction/introduction",
+                "introduction/quickstart",
+                "introduction/examples"
+            ]
+        },
+        {
+            "group": "API Reference",
+            "pages": [
+                "api-reference/program-state",
+                "api-reference/backends",
+                "api-reference/request-types"
+            ]
         }
     ],
     "footerSocials": {
