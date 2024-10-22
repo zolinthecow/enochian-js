@@ -2,7 +2,7 @@ import ProgramState from '../src/programState.js';
 
 export async function run() {
     const s = new ProgramState();
-    s.setModel('http://localhost:30000');
+    await s.setModel('http://localhost:30000');
 
     s.add(s.system`You are a helpful assistant.`)
         .add(s.user`How can I stay healthy?`)

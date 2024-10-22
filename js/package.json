@@ -6,11 +6,11 @@
     "type": "module",
     "scripts": {
         "build": "tsc -p tsconfig.build.json",
-        "ci": "pnpm build && pnpm check-format && pnpm check-exports",
+        "ci": "pnpm test && pnpm build && pnpm check-format && pnpm check-exports",
         "format": "biome check --write --no-errors-on-unmatched",
         "check-format": "biome check --no-errors-on-unmatched",
         "check-exports": "attw --pack . --ignore-rules=cjs-resolves-to-esm",
-        "test": "node --import @swc-node/register/esm-register examples/_test.ts"
+        "test": "vitest --config tests/vitest.config.ts"
     },
     "keywords": ["LLM", "prompting"],
     "files": ["dist"],
@@ -23,6 +23,7 @@
     "devDependencies": {
         "@arethetypeswrong/cli": "^0.16.4",
         "@types/node": "^22.7.4",
+        "msw": "^2.4.12",
         "typescript": "^5.6.3",
         "vitest": "^2.1.2"
     },

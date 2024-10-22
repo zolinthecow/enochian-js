@@ -6,7 +6,7 @@ const db = new Database('enochian-studio.sqlite');
 
 const packageRoot = path.resolve(import.meta.dirname);
 
-function applyMigrations() {
+export function applyMigrations() {
     // Ensure migrations table exists
     db.exec(`
     CREATE TABLE IF NOT EXISTS migrations (
