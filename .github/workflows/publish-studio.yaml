@@ -38,6 +38,9 @@ jobs:
           pnpm install
 
       - name: Build package
+        env:
+          SGL_IP: ${{ secrets.SGL_IP }}
+          SGL_PORt: ${{ secrets.SGL_PORT }}
         run: |
           pushd studio
           pnpm run ci
