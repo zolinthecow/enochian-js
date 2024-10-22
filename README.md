@@ -1,6 +1,6 @@
 # EnochianJS
 
-TS/JS library for programming LLM interactions. Read the docs [here](https://zolinthecow.mintlify.app/introduction/enochian)!
+TS/JS library for programming LLM interactions. Read the docs [here](https://zolinthecow.mintlify.app/introduction/introduction)!
 
 ## File Structure
 

@@ -4,7 +4,9 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "dev": "mintlify dev"
+        "dev": "mintlify dev",
+        "test": "mintlify broken-links",
+        "ci": "pnpm test"
     },
     "keywords": [],
     "author": "",
