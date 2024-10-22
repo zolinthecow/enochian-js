@@ -118,5 +118,6 @@ export async function POST(event: APIEvent) {
 }
 
 function isPromptRequest(request: PostBodyRequest): request is PromptRequest {
+    console.log(request);
     return 'requestPrompt' in request;
 }

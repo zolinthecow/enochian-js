@@ -10,7 +10,7 @@
         "format": "biome check --write --no-errors-on-unmatched",
         "check-format": "biome check --no-errors-on-unmatched",
         "check-exports": "attw --pack . --ignore-rules=cjs-resolves-to-esm",
-        "test": "vitest --config tests/config.ts"
+        "test": "vitest --config tests/vitest.config.ts"
     },
     "keywords": ["LLM", "prompting"],
     "files": ["dist"],

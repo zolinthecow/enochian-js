@@ -13,7 +13,8 @@
         "migrate": "node migrate.js",
         "check-format": "biome check --no-errors-on-unmatched",
         "check-exports": "attw --pack . --ignore-rules=cjs-resolves-to-esm",
-        "ci": "pnpm build && pnpm check-format && pnpm check-exports"
+        "ci": "pnpm test && pnpm build && pnpm check-format && pnpm check-exports",
+        "test": "vitest --config tests/vitest.config.ts"
     },
     "keywords": ["LLM", "prompting"],
     "types": "index.d.ts",
@@ -52,6 +53,7 @@
         "@types/node": "^22.7.4",
         "autoprefixer": "^10.4.20",
         "postcss": "^8.4.47",
-        "tailwindcss": "^3.4.14"
+        "tailwindcss": "^3.4.14",
+        "vitest": "^2.1.2"
     }
 }

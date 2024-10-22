@@ -14,6 +14,7 @@ let capturedRequestBodies: PromptPostBody[] = [];
 const server = setupServer(
     http.post('http://localhost:56765/api/prompt', async ({ request }) => {
         const body = await request.json();
+        console.log(JSON.stringify(body));
         capturedRequestBodies.push(body);
         return HttpResponse.json({ id: 'abc123' }, { status: 200 });
     }),
