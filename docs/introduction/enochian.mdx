@@ -1,0 +1,39 @@
+---
+title: 'Introduction'
+description: 'A way to program LLMs in a more ergonomic fashion'
+---
+
+Enochian is a javascript library for ergonomic programming of LLM workflows. It alows you to write use javascript control flow, to "program" the prompts being submitted to an LLM.
+
+By just using the OpenAI NodeJS SDK, you'd have verbose code littered throughout your codebase without any way to manage the *state* of your workflow:
+
+```typescript
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  apiKey: process.env['OPENAI_API_KEY'], // This is the default and can be omitted
+});
+
+async function main() {
+  const chatCompletion = await client.chat.completions.create({
+    messages: [{ role: 'user', content: 'Say this is a test' }],
+    model: 'gpt-3.5-turbo',
+  });
+}
+
+main();
+```
+
+This is fine for one-off requests to the API, but for anything more complicated, it becomse a mess to manage, especially when it comes to more agentic workflows. This is where enochian-js shines. It handles managing the state of your program for you, allowing you to program your LLM with regular javascript control-flow.
+
+```typescript
+const s = new ProgramState(new OpenAIBackend({ apiKey: process.env.OPENAI_KEY }));
+s.setModel({ modelName: 'gpt-4o-mini' });
+await s
+    .add(s.system`You are a helpful assistant.`)
+    .add(s.user`Tell me a joke.`)
+    .add(s.assistant`${s.gen('joke')}`);
+console.log(s.get('joke'));
+```
+
+A simple programming model and helpful abstractions allow for a much more ergonomic way to develop applications that use LLMs.

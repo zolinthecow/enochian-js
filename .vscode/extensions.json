@@ -3,7 +3,7 @@
         "biomejs.biome",
         "bradlc.vscode-tailwindcss",
         "yoavbls.pretty-ts-errors",
-        "tamasfe.even-better-toml",
-        "bradlc.vscode-tailwindcss"
+        "bradlc.vscode-tailwindcss",
+        "unifiedjs.vscode-mdx"
     ]
 }

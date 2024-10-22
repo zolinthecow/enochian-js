@@ -1,0 +1,45 @@
+.codeblock-with-output {
+	> div:first-child {
+		margin-top: 0 !important;
+		margin-bottom: 1rem !important;
+	}
+
+	.codeblock-with-output-inner > div > div:first-child {
+		margin-top: 0 !important;
+		margin-bottom: 0.5rem !important;
+	}
+}
+
+section.section-showcase {
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+}
+
+a.callout-link {
+	border: none;
+	display: flex;
+	background-color: rgb(var(--primary) / 0.1);
+	padding: 1.5rem 2rem 1.5rem 1.5rem;
+	border-radius: 0.75rem;
+	border: 1px solid rgb(var(--primary) / 0.2);
+	justify-content: space-between;
+	color: rgb(var(--primary) / 1);
+	font-weight: 600;
+	&:hover {
+		background-color: rgb(var(--primary) / 0.15);
+	}
+	> span {
+		display: flex;
+		gap: 1rem;
+	}
+	& p {
+		margin: 0;
+	}
+	& img {
+		display: block;
+		width: auto;
+		height: 1.75rem;
+		margin: 0;
+	}
+}
