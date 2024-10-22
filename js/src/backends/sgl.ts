@@ -22,6 +22,7 @@ import type Backend from './backend.interface.js';
 
 export type SGLSetModelParams = string;
 
+// DOCS COVERAGE: /api-reference/backends
 export default class SGLBackend implements Backend {
     private _chatTemplateGroup: ChatTemplateGroup;
     private _currentModel: { url: string; path: string };

@@ -7,9 +7,10 @@ import { ViewInGithub } from '/snippets/view-in-github.mdx';
 <ViewInGithub link={"https://github.com/zolinthecow/enochian-js/blob/master/js/src/programState.ts"} />
 
 The `ProgramState` class is the core object of Enochian. The core functions are [`.add`](/api-reference/program-state#add), [`.user`](/api-reference/program-state#user-assitant-system),
-[`.assistant`](/api-reference/program-state#user-assitant-system), [`.system`](/api-reference/program-state#user-assitant-system), and [`.gen`](/api-reference/program-state#gen). The idea is that the `ProgramState` should only be affected
+[`.assistant`](/api-reference/program-state#user-assitant-system), [`.system`](/api-reference/program-state#user-assitant-system), and [`.gen`](/api-reference/program-state#gen).
+The `ProgamState` has an internal list of `Message` that defines the state of the object. The idea is that the `ProgramState` should only be affected
 by [`.add`](/api-reference/program-state#add), and the other role functions and generate functions can use the state of the `ProgramState`
-but should never change any of it's values.
+but should never change any of it's messages.
 
 ## `.add`
 **Parameters**:
@@ -128,7 +129,7 @@ but it should always have a model name.
 - `ProgramState`
 
 **Types Referenced**:
-- `Backend`
+- [`Backend`](/api-references/backends)
 
 Set the backend of the `ProgramState`
 
