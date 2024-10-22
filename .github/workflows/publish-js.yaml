@@ -41,6 +41,7 @@ jobs:
         env:
           SGL_IP: ${{ secrets.SGL_IP }}
           SGL_PORT: ${{ secrets.SGL_PORT }}
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
         run: |
           pushd js
           pnpm run ci
