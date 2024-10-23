@@ -7,7 +7,7 @@ const IP = process.env.SGL_IP;
 const port = process.env.SGL_PORT;
 const url = `http://${IP}:${port}`;
 
-describe('Basic functionality of the ProgramState', () => {
+describe('Basic functionality of the sgl ProgramState', () => {
     it('does a multiturn question correctly', async () => {
         const s = new ProgramState();
 
