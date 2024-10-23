@@ -1,0 +1,17 @@
+{
+    "name": "docs",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "dev": "mintlify dev",
+        "test": "mintlify broken-links",
+        "ci": "pnpm test"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+        "mintlify": "^4.0.246"
+    }
+}

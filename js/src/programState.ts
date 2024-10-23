@@ -16,6 +16,7 @@ import { isNonStreamingInput } from './utils.js';
 
 type Message = { role: 'user' | 'assistant' | 'system'; content: string };
 
+// DOCS COVERAGE: /api-reference/program-state
 export default class ProgramState {
     private _messages: Array<Message>;
     private _answers: { [key: string]: GenerateRespSingle };

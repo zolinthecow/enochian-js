@@ -1,0 +1,63 @@
+{
+    "$schema": "https://mintlify.com/schema.json",
+    "name": "Enochian Docs",
+    "logo": {
+        "dark": "/logo/dark.svg",
+        "light": "/logo/light.svg"
+    },
+    "favicon": "/favicon.svg",
+    "colors": {
+        "primary": "#AC9033",
+        "light": "#AC9033",
+        "dark": "#AC9033",
+        "anchors": {
+            "from": "#AC9033",
+            "to": "#AC9033"
+        }
+    },
+    "modeToggle": {
+        "default": "light"
+    },
+    "topbarLinks": [
+        {
+            "name": "Support",
+            "url": "mailto:colinzhao777@gmail.com"
+        }
+    ],
+    "anchors": [
+        {
+            "name": "Website",
+            "icon": "globe",
+            "url": "https://github.com/zolinthecow/enochian-js"
+        }
+    ],
+    "tabs": [
+        {
+            "name": "API Reference",
+            "url": "api-reference"
+        }
+    ],
+    "navigation": [
+        {
+            "group": "Introduction",
+            "pages": [
+                "introduction/introduction",
+                "introduction/quickstart",
+                "introduction/examples"
+            ]
+        },
+        {
+            "group": "API Reference",
+            "pages": [
+                "api-reference/program-state",
+                "api-reference/backends",
+                "api-reference/request-types"
+            ]
+        }
+    ],
+    "footerSocials": {
+        "x": "https://x.com/zolinthecow",
+        "github": "https://github.com/zolinthecow",
+        "linkedin": "https://www.linkedin.com/in/col1nzhao/"
+    }
+}

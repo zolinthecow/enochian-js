@@ -18,6 +18,7 @@ export type OpenAISetModelParams = {
     modelName?: OpenAI.ChatModel;
 };
 
+// DOCS COVERAGE: /api-reference/backends
 export default class OpenAIBackend implements Backend {
     private _modelName: OpenAI.ChatModel = 'gpt-4o-mini';
     private _openai: OpenAI;
