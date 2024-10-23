@@ -16,6 +16,8 @@ import { isNonStreamingInput } from './utils.js';
 
 type Message = { role: 'user' | 'assistant' | 'system'; content: string };
 
+type Stringifiable = string | number | boolean | bigint;
+
 // DOCS COVERAGE: /api-reference/program-state
 export default class ProgramState {
     private _messages: Array<Message>;
@@ -39,12 +41,16 @@ export default class ProgramState {
         function roleFunction(
             this: ProgramState,
             strings: TemplateStringsArray,
-            ...values: string[]
+            ...values: Stringifiable[]
         ): Message;
         function roleFunction(
             this: ProgramState,
             strings: TemplateStringsArray,
-            ...values: (GenAsyncFunctionReturnType | string)[]
+            ...values: (
+                | GenAsyncFunctionReturnType
+                | Promise<Stringifiable>
+                | Stringifiable
+            )[]
         ): Promise<Message>;
         function roleFunction(
             this: ProgramState,
@@ -52,19 +58,25 @@ export default class ProgramState {
             ...values: (
                 | GenAsyncGeneratorReturnType
                 | GenAsyncFunctionReturnType
-                | string
+                | Promise<Stringifiable>
+                | Stringifiable
             )[]
         ): AsyncGenerator<Message>;
         function roleFunction(
             this: ProgramState,
             strings: TemplateStringsArray,
             ...values:
-                | string[]
-                | (GenAsyncFunctionReturnType | string)[]
+                | Stringifiable[]
+                | (
+                      | GenAsyncFunctionReturnType
+                      | Promise<Stringifiable>
+                      | Stringifiable
+                  )[]
                 | (
                       | GenAsyncGeneratorReturnType
                       | GenAsyncFunctionReturnType
-                      | string
+                      | Promise<Stringifiable>
+                      | Stringifiable
                   )[]
         ): Message | Promise<Message> | AsyncGenerator<Message> {
             if (values.some((v) => isGenAsyncGenerator(v))) {
@@ -75,7 +87,8 @@ export default class ProgramState {
                         ...(values as (
                             | GenAsyncGeneratorReturnType
                             | GenAsyncFunctionReturnType
-                            | string
+                            | Promise<Stringifiable>
+                            | Stringifiable
                         )[]),
                     );
                     for await (const chunk of chunks) {
@@ -91,7 +104,11 @@ export default class ProgramState {
                     content: await this._processRoleStringTemplate(
                         role,
                         strings,
-                        ...(values as (GenAsyncFunctionReturnType | string)[]),
+                        ...(values as (
+                            | GenAsyncFunctionReturnType
+                            | Promise<Stringifiable>
+                            | Stringifiable
+                        )[]),
                     ),
                 }))();
             } else {
@@ -100,7 +117,7 @@ export default class ProgramState {
                     content: this._processRoleStringTemplate(
                         role,
                         strings,
-                        ...(values as string[]),
+                        ...(values as Stringifiable[]),
                     ),
                 };
             }
@@ -115,12 +132,16 @@ export default class ProgramState {
     private _processRoleStringTemplate(
         role: 'system' | 'user' | 'assistant',
         strings: TemplateStringsArray,
-        ...values: string[]
+        ...values: Stringifiable[]
     ): string;
     private _processRoleStringTemplate(
         role: 'system' | 'user' | 'assistant',
         strings: TemplateStringsArray,
-        ...values: (GenAsyncFunctionReturnType | Promise<string> | string)[]
+        ...values: (
+            | GenAsyncFunctionReturnType
+            | Promise<Stringifiable>
+            | Stringifiable
+        )[]
     ): Promise<string>;
     private _processRoleStringTemplate(
         role: 'system' | 'user' | 'assistant',
@@ -128,21 +149,25 @@ export default class ProgramState {
         ...values: (
             | GenAsyncGeneratorReturnType
             | GenAsyncFunctionReturnType
-            | Promise<string>
-            | string
+            | Promise<Stringifiable>
+            | Stringifiable
         )[]
     ): AsyncGenerator<string>;
     private _processRoleStringTemplate(
         role: 'system' | 'user' | 'assistant',
         strings: TemplateStringsArray,
         ...values:
-            | string[]
-            | (GenAsyncFunctionReturnType | Promise<string> | string)[]
+            | Stringifiable[]
+            | (
+                  | GenAsyncFunctionReturnType
+                  | Promise<Stringifiable>
+                  | Stringifiable
+              )[]
             | (
                   | GenAsyncGeneratorReturnType
                   | GenAsyncFunctionReturnType
-                  | Promise<string>
-                  | string
+                  | Promise<Stringifiable>
+                  | Stringifiable
               )[]
     ): string | Promise<string> | AsyncGenerator<string> {
         // If there is any async generator function it should become a generator
@@ -173,15 +198,13 @@ export default class ProgramState {
                             curMessage.content += generatedText;
                             yield generatedText;
                         } else if (value instanceof Promise) {
-                            let awaited = await value;
-                            if (typeof awaited !== 'string') {
-                                awaited = JSON.stringify(awaited);
-                            }
+                            const awaited = (await value).toString();
                             curMessage.content += awaited;
                             yield awaited;
-                        } else if (typeof value === 'string') {
-                            curMessage.content += value;
-                            yield value;
+                        } else if (value !== undefined) {
+                            const toAppend = value.toString();
+                            curMessage.content += toAppend;
+                            yield toAppend;
                         }
                     }
                 }
@@ -207,13 +230,11 @@ export default class ProgramState {
                             // Should trim out the generated end tokens
                             curMessage.content += generatedText;
                         } else if (value instanceof Promise) {
-                            let awaited = await value;
-                            if (typeof awaited !== 'string') {
-                                awaited = JSON.stringify(awaited);
-                            }
-                            curMessage.content += awaited;
-                        } else if (typeof value === 'string') {
-                            curMessage.content += value;
+                            const awaited = await value;
+                            curMessage.content += awaited.toString();
+                        } else if (value !== undefined) {
+                            const toAppend = value.toString();
+                            curMessage.content += toAppend;
                         }
                     }
                 }
