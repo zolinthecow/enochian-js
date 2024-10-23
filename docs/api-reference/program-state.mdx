@@ -42,12 +42,12 @@ then it will yield results until the generator is done, then add it to the inter
 
 ## `.user`, `.assitant`, `.system`
 **Parameters**:
-- `strings: TemplateStringsArray, ...values: string[]` or
+- `strings: TemplateStringsArray, ...values: Stringifiable[]` or
 - `strings: TemplateStringsArray, ...values: ((messages: Message[]) =>
-Promise<string> | string[])` or
-- `strings: TemplateStringsArray), ...values: ((messages: Message[]) =>
+Promise<string> | Promise<Stringifiable> | Stringifiable)[]` or
+- `strings: TemplateStringsArray, ...values: ((messages: Message[]) =>
 AsyncGenerator<string, void, unknown> | (messages: Message[])
-=> Promise<string> | string[]`
+=> Promise<string> | Promise<Stringifiable> | Stringifiable)[]`
 
 **Returns**:
 - `Message` or
@@ -56,6 +56,7 @@ AsyncGenerator<string, void, unknown> | (messages: Message[])
 
 **Types Referenced**:
 - [`Message`](https://github.com/zolinthecow/enochian-js/blob/af2c07b982b2034e1f299b4d938539a94e5cda72/js/src/programState.ts#L16)
+- `type Stringifiable = string | number | boolean | bigint;`
 
 Creates a `Message` object with a role corresponding to the function name. The template function
 can take in interpolated values of `string`, `(messages: Message[]) => Promise<string>`,
