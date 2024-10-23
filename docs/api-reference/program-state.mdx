@@ -145,13 +145,18 @@ or is less than 0, it forks once.
 
 ## `.get`
 **Parameters**
-- `key: string`
+- `key: string` or
+- `key: string, schema: ZodType`
 
 **Returns**
-- `string | undefined`
+- `string | undefined` or
+- `z.infer<ZodType> | undefined`
 
-Gets the value that was generated for a given `answerKey` that was passed into [`.gen`](/api-reference/program-state#gen). Returns
-undefined if the `key` does not exist.
+Gets the value that was generated for a given `answerKey` that was passed into [`.gen`](/api-reference/program-state#gen).
+If the key is found and a `schema` was not passed in, then it will return a string. If a `schema` was passed
+in, then it will parse it and return the resulting type. This should only really be used when you passed in a
+`schema` to [`.gen`](/api-reference/program-state#gen) in the [`SamplingParams`](/api-reference/request-types#SamplingParams)
+to do constrained decoding. Returns undefined if the `key` does not exist.
 
 ## `.getPrompt`
 **Parameters**
