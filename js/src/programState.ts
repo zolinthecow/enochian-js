@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { ulid } from 'ulid';
+import type { z } from 'zod';
 import type {
     Debug,
     GenerateReqNonStreamingInput,
@@ -317,6 +318,7 @@ export default class ProgramState {
                     ...genInput,
                     debug: self._debug,
                 });
+                // Cannot do `for await` since I want the return value as well
                 let chunk: IteratorResult<GenerateRespSingle> =
                     await generator.next();
                 while (!chunk.done) {
@@ -348,8 +350,19 @@ export default class ProgramState {
             );
     }
 
-    get(key: string): string | undefined {
-        return this._answers[key]?.text;
+    get(key: string): string | undefined;
+    get<Z extends z.ZodType>(key: string, schema: Z): z.infer<Z> | undefined;
+    get<Z extends z.ZodType>(
+        key: string,
+        schema?: Z,
+    ): string | z.infer<Z> | undefined {
+        const value = this._answers[key]?.text;
+        if (!value) return undefined;
+        if (schema) {
+            return schema.parse(JSON.parse(value));
+        } else {
+            return value;
+        }
     }
 
     getPrompt(): string {

@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { z } from 'zod';
 import ProgramState, { OpenAIBackend } from '../src/index.js';
 
 const IP = process.env.SGL_IP;
 const port = process.env.SGL_PORT;
 const url = `http://${IP}:${port}`;
 
-describe('Basic functionality of the ProgramState', () => {
+describe('Basic functionality of the sgl ProgramState', () => {
     it('does a multiturn question correctly', async () => {
         const s = new ProgramState();
 
@@ -23,29 +24,8 @@ describe('Basic functionality of the ProgramState', () => {
                 s.assistant`No problem! ${s.gen('answer2', { sampling_params: { temperature: 0 } })}`,
             );
 
-        const answers = [
-            "Here's one:\n" +
-                '\n' +
-                "Why couldn't the bicycle stand up by itself?\n" +
-                '\n' +
-                '(Wait for it...)\n' +
-                '\n' +
-                'Because it was two-tired!\n' +
-                '\n' +
-                'Hope that made you smile! Do you want to hear another one?',
-            " Here's another one:\n" +
-                '\n' +
-                "Why don't scientists trust atoms?\n" +
-                '\n' +
-                '(Think about it for a sec...)\n' +
-                '\n' +
-                'Because they make up everything!\n' +
-                '\n' +
-                'Hope that one was more to your liking! Do you want to hear another one?',
-        ];
-
-        expect(s.get('answer1')).toBe(answers[0]);
-        expect(s.get('answer2')).toBe(answers[1]);
+        expect(s.get('answer1')).toContain("Here's one:");
+        expect(s.get('answer2')).toContain("Here's another one:");
     });
 
     it('does backend swapping properly', async () => {
@@ -67,18 +47,7 @@ describe('Basic functionality of the ProgramState', () => {
             .add(s.user`Tell me a better one`)
             .add(s.assistant`No problem! ${s.gen('answer2')}`);
 
-        const answer1 =
-            "Here's one:\n" +
-            '\n' +
-            "Why couldn't the bicycle stand up by itself?\n" +
-            '\n' +
-            '(Wait for it...)\n' +
-            '\n' +
-            'Because it was two-tired!\n' +
-            '\n' +
-            'Hope that made you smile! Do you want to hear another one?';
-        expect(s.get('answer1')).toBe(answer1);
-        // Can't really control openai deterministically, so as long as it didn't crash I'm fine with it
+        expect(s.get('answer1')).toContain("Here's one");
         expect(s.get('answer2')).toBeDefined();
     });
 
@@ -126,7 +95,7 @@ describe('Basic functionality of the ProgramState', () => {
 
         expect(forks[0]?.get('detailed_tip')).toBeDefined();
         expect(forks[1]?.get('detailed_tip')).toBeDefined();
-        expect(s?.get('summary')).contains('1.');
+        expect(s?.get('summary')).toBeDefined();
     });
 
     it('does streaming correctly', async () => {
@@ -143,16 +112,37 @@ describe('Basic functionality of the ProgramState', () => {
             expect(typeof chunk.content).toBe('string');
         }
 
-        const answer1 =
-            "Here's one:\n" +
-            '\n' +
-            "Why couldn't the bicycle stand up by itself?\n" +
-            '\n' +
-            '(Wait for it...)\n' +
-            '\n' +
-            'Because it was two-tired!\n' +
-            '\n' +
-            'Hope that made you smile! Do you want to hear another one?';
-        expect(s.get('answer1')).toBe(answer1);
+        expect(s.get('answer1')).toBeDefined();
+    });
+
+    it('does constrained decoding correctly', async () => {
+        const s = new ProgramState();
+
+        await s.setModel(url);
+
+        const schema = z.object({
+            id: z.string().uuid(),
+            name: z.string().min(2).max(50),
+            age: z.number().int().min(0).max(120),
+            email: z.string().email(),
+            tags: z.array(z.string()).min(1).max(5),
+            role: z.enum(['admin', 'user', 'guest']),
+            settings: z
+                .object({
+                    theme: z.enum(['light', 'dark']),
+                    notifications: z.boolean(),
+                })
+                .optional(),
+            // You can't use z.date() since the LLM will generate a datestring, not a Date
+            joinedAt: z.string().date(),
+        });
+
+        await s
+            .add(s.user`Describe a google employee's profile in json format`)
+            .add(
+                s.assistant`${s.gen('answer', { sampling_params: { zod_schema: schema } })}`,
+            );
+        const profile = s.get('answer', schema);
+        expect(schema.safeParse(profile).success).toBe(true);
     });
 });

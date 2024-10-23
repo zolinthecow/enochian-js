@@ -1,4 +1,10 @@
-import type { GenerateReqInput, GenerateReqNonStreamingInput } from './api.js';
+import { z } from 'zod';
+import type {
+    GenerateReqInput,
+    GenerateReqNonStreamingInput,
+    GenerateRespSingle,
+    MetaInfo,
+} from './api.js';
 import type { Message } from './backends/backend.interface.js';
 
 // Typescript flattens the type union when doing Omit so it is no longer a discriminated union

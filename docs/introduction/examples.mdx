@@ -93,7 +93,7 @@ Then, we can join them back into the parent `ProgramState` and continue generati
 Enochian of course also supports streaming, so you can use it for a chat application frontend.
 
 ```typescript
-import ProgramState from '../src/programState.js';
+import ProgramState from 'enochian-js';
 
 const s = new ProgramState();
 
@@ -107,3 +107,45 @@ for await (const chunk of gen) {
 }
 console.log(s.get('answer1'), s.getMetaInfo('answer1'));
 ```
+
+## Constrained decoding
+
+For structured outputs, you can pass in either a regex, a [JsonSchema](https://json-schema.org/), or a
+(zod)[https://zod.dev/] schema inside [`SamplingParams`](/api-reference/request-types#SamplingParams).
+Zod types are the preferred way since it allows for type safety in the [`.get`](/api-reference/program-state#get).
+
+```typescript
+import ProgramState from 'enochian-js'
+import { z } from 'zod';
+
+const schema = z.object({
+    id: z.string().uuid(),
+    name: z.string().min(2).max(50),
+    age: z.number().int().min(0).max(120),
+    email: z.string().email(),
+    tags: z.array(z.string()).min(1).max(5),
+    role: z.enum(['admin', 'user', 'guest']),
+    settings: z
+        .object({
+            theme: z.enum(['light', 'dark']),
+            notifications: z.boolean(),
+        })
+        .optional(),
+    // You can't use z.date() since the LLM will generate a datestring, not a Date
+    joinedAt: z.string().date(),
+});
+
+const s = new ProgramState();
+
+await s.setModel('http://localhost:30000');
+await s
+    .add(s.user`Describe a google employee's profile in json format`)
+    .add(
+        s.assistant`${s.gen('answer', { sampling_params: { zod_schema: schema } })}`,
+    );
+const profile = s.get('answer', schema);
+console.log(profile);
+```
+
+<Note>If you know how to make the return type of `.get` automatically inferred by the schema passed into
+`.gen`, please let me know!</Note>

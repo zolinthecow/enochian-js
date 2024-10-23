@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import OpenAI, { type ClientOptions } from 'openai';
+import { zodResponseFormat } from 'openai/helpers/zod.mjs';
 import { ulid } from 'ulid';
 import type {
     Debug,
@@ -236,13 +237,23 @@ function genInputToChatCompletionInput(
         top_logprobs: genInput?.top_logprobs_num,
         max_completion_tokens: genInput?.sampling_params?.max_new_tokens,
         presence_penalty: genInput?.sampling_params?.presence_penalty,
-        // TODO: JSON SCHEMA
-        // response_format
         stop: genInput?.sampling_params?.stop,
         temperature: genInput?.sampling_params?.temperature,
         top_p: genInput?.sampling_params?.top_p,
         stream: genInput?.stream,
     };
+    if (genInput?.sampling_params?.json_schema) {
+        bodyParams.response_format = {
+            type: 'json_schema',
+            json_schema: JSON.parse(genInput?.sampling_params?.json_schema),
+        };
+    }
+    if (genInput?.sampling_params?.zod_schema) {
+        bodyParams.response_format = zodResponseFormat(
+            genInput.sampling_params.zod_schema,
+            'response',
+        );
+    }
     if (genInput?.stream) {
         bodyParams.stream_options = {
             include_usage: true,
