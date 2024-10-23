@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { ulid } from 'ulid';
-import { z } from 'zod';
+import type { z } from 'zod';
 import type {
     Debug,
     GenerateReqNonStreamingInput,
@@ -306,14 +306,7 @@ export default class ProgramState {
                 if (Array.isArray(ans)) {
                     throw new Error('Multiple generations not implemented.');
                 }
-                this._answers[answerKey] = { ...ans };
-                console.log(ans.text);
-                if (genInput?.sampling_params?.zod_schema) {
-                    this._answers[answerKey].text =
-                        genInput.sampling_params.zod_schema.parse(
-                            JSON.parse(this._answers[answerKey].text),
-                        );
-                }
+                this._answers[answerKey] = ans;
                 return ans.text;
             };
         } else {
@@ -336,16 +329,7 @@ export default class ProgramState {
                 if (!fullMessage.value || !fullMessage.done) {
                     throw new Error('Missing return from gen');
                 }
-                self._answers[answerKey] = { ...fullMessage.value };
-                if (
-                    genInput?.sampling_params?.zod_schema &&
-                    self._answers[answerKey]
-                ) {
-                    self._answers[answerKey].text =
-                        genInput.sampling_params.zod_schema.parse(
-                            JSON.parse(self._answers[answerKey].text),
-                        );
-                }
+                self._answers[answerKey] = fullMessage.value;
             };
         }
     }
@@ -365,8 +349,19 @@ export default class ProgramState {
             );
     }
 
-    get(key: string): string | undefined {
-        return this._answers[key]?.text;
+    get(key: string): string | undefined;
+    get<Z extends z.ZodType>(key: string, schema: Z): z.infer<Z> | undefined;
+    get<Z extends z.ZodType>(
+        key: string,
+        schema?: Z,
+    ): string | z.infer<Z> | undefined {
+        const value = this._answers[key]?.text;
+        if (!value) return undefined;
+        if (schema) {
+            return schema.parse(JSON.parse(value));
+        } else {
+            return value;
+        }
     }
 
     getPrompt(): string {

@@ -27,7 +27,10 @@ export async function run() {
         .add(
             s.assistant`${s.gen('answer', { sampling_params: { zod_schema: schema } })}`,
         );
-    console.log(s.get('answer'));
+    // If anyone knows how to make the type automatically inferred without passing in the schema again
+    // please let me know
+    const profile = s.get('answer', schema);
+    console.log(profile);
 }
 
 (async () => {
