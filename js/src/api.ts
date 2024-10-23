@@ -115,6 +115,11 @@ export type SamplingParams = {
      */
     json_schema?: string;
     /**
+     * Constrains the output to follow a given Zod schema.
+     * Generates a `json_schema` and overrides whatever was set in it.
+     */
+    zod_schema?: z.ZodObject<z.ZodRawShape>;
+    /**
      * Float that penalizes new tokens based on their frequency in the generated text so far.
      * Values > 0 encourage the model to use new tokens, while values < 0 encourage the model to
      * repeat tokens. Must be -2 <= value <= 2. Setting to 0 (default) will disable this penalty.

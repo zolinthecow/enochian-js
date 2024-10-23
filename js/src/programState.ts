@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { ulid } from 'ulid';
+import { z } from 'zod';
 import type {
     Debug,
     GenerateReqNonStreamingInput,
@@ -305,7 +306,14 @@ export default class ProgramState {
                 if (Array.isArray(ans)) {
                     throw new Error('Multiple generations not implemented.');
                 }
-                this._answers[answerKey] = ans;
+                this._answers[answerKey] = { ...ans };
+                console.log(ans.text);
+                if (genInput?.sampling_params?.zod_schema) {
+                    this._answers[answerKey].text =
+                        genInput.sampling_params.zod_schema.parse(
+                            JSON.parse(this._answers[answerKey].text),
+                        );
+                }
                 return ans.text;
             };
         } else {
@@ -316,6 +324,7 @@ export default class ProgramState {
                     ...genInput,
                     debug: self._debug,
                 });
+                // Cannot do `for await` since I want the return value as well
                 let chunk: IteratorResult<GenerateRespSingle> =
                     await generator.next();
                 while (!chunk.done) {
@@ -327,7 +336,16 @@ export default class ProgramState {
                 if (!fullMessage.value || !fullMessage.done) {
                     throw new Error('Missing return from gen');
                 }
-                self._answers[answerKey] = fullMessage.value;
+                self._answers[answerKey] = { ...fullMessage.value };
+                if (
+                    genInput?.sampling_params?.zod_schema &&
+                    self._answers[answerKey]
+                ) {
+                    self._answers[answerKey].text =
+                        genInput.sampling_params.zod_schema.parse(
+                            JSON.parse(self._answers[answerKey].text),
+                        );
+                }
             };
         }
     }

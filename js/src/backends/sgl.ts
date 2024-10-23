@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { ulid } from 'ulid';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
     type Debug,
     type GenerateReqInput,
@@ -75,6 +76,13 @@ export default class SGLBackend implements Backend {
         assert(
             !genInput?.sampling_params?.n || genInput?.sampling_params?.n === 1,
             'Generating multiple responses is unimplemented.',
+        );
+        assert(
+            !(
+                genInput?.sampling_params?.regex &&
+                genInput?.sampling_params?.json_schema
+            ),
+            'Cannot support both regex and json_schema',
         );
         if (genInput && !isNonStreamingInput(genInput)) {
             return this._streamResponse(messages, genInput);
@@ -314,7 +322,18 @@ export default class SGLBackend implements Backend {
         if (Array.isArray(messages[0])) {
             reqId = genInput?.rid ?? messages.map((_) => ulid());
         }
-        const reqInput: Omit<GenerateReqInput, 'debug'> = {
+
+        let jsonSchema = undefined;
+        if (genInput?.sampling_params?.zod_schema) {
+            jsonSchema = zodToJsonSchema(
+                genInput?.sampling_params?.zod_schema,
+                {
+                    emailStrategy: 'pattern:zod',
+                },
+            );
+        }
+
+        const reqInput: Omit<GenerateReqInput, 'debug' | 'zod_schema'> = {
             text: 'temp',
             ...genInput,
             rid: reqId,
@@ -334,6 +353,8 @@ export default class SGLBackend implements Backend {
                 spaces_between_special_tokens: true,
                 n: 1,
                 ...genInput?.sampling_params,
+                json_schema: JSON.stringify(jsonSchema),
+                zod_schema: undefined,
             },
         };
 
