@@ -98,7 +98,11 @@ export default class ProgramState {
                         };
                     }
                 }.call(this);
-            } else if (values.some((v) => isGenAsyncFunction(v))) {
+            } else if (
+                values.some(
+                    (v) => isGenAsyncFunction(v) || v instanceof Promise,
+                )
+            ) {
                 return (async () => ({
                     role,
                     content: await this._processRoleStringTemplate(
