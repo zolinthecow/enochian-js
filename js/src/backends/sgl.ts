@@ -328,9 +328,9 @@ export default class SGLBackend implements Backend {
         if (genInput?.sampling_params?.zod_schema) {
             jsonSchema = zodToJsonSchema(
                 genInput?.sampling_params?.zod_schema,
-                // {
-                //     emailStrategy: 'pattern:zod',
-                // },
+                {
+                    emailStrategy: 'pattern:zod',
+                },
             );
         }
 
