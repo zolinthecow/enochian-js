@@ -31,7 +31,6 @@
         "@solidjs/start": "^1.0.8",
         "@trpc/client": "11.0.0-rc.586",
         "@trpc/server": "11.0.0-rc.586",
-        "@typeschema/valibot": "^0.13.4",
         "better-sqlite3": "^11.4.0",
         "class-variance-authority": "^0.7.0",
         "clsx": "^2.1.1",

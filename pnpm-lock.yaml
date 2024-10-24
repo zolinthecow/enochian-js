@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  better-sqlite3: ^11.4.0
+
 importers:
 
   .:
@@ -81,9 +84,6 @@ importers:
       '@trpc/server':
         specifier: 11.0.0-rc.586
         version: 11.0.0-rc.586
-      '@typeschema/valibot':
-        specifier: ^0.13.4
-        version: 0.13.5(valibot@0.29.0)
       better-sqlite3:
         specifier: ^11.4.0
         version: 11.4.0
@@ -1586,25 +1586,6 @@ packages:
   '@types/yauzl@2.10.3':
     resolution: {integrity: sha512-oJoftv0LSuaDZE3Le4DbKX+KS9G36NzOeSap90UIK0yMA/NhKJhqlSGtNDORNRaIbQfzjXDrQa0ytJ6mNRGz/Q==}
 
-  '@typeschema/core@0.13.2':
-    resolution: {integrity: sha512-pAt0MK249/9szYaoPuvzhSfOd3smrLhhwCCpUNB4onX32mRx5F3lzDIveIYGQkLYRq58xOX5sjoW+n72f/MLLw==}
-    peerDependencies:
-      '@types/json-schema': ^7.0.15
-    peerDependenciesMeta:
-      '@types/json-schema':
-        optional: true
-
-  '@typeschema/valibot@0.13.5':
-    resolution: {integrity: sha512-9S3daaU7ShC1aRkZVmsW5N8uTPE7l4Af/c+rWTyFZi2/yp4Iiped8947WGX03lMd3UW6/UdbfOaiOh7HByQPiw==}
-    peerDependencies:
-      '@gcornut/valibot-json-schema': ^0.31.0
-      valibot: ^0.31.0
-    peerDependenciesMeta:
-      '@gcornut/valibot-json-schema':
-        optional: true
-      valibot:
-        optional: true
-
   '@vercel/nft@0.26.5':
     resolution: {integrity: sha512-NHxohEqad6Ra/r4lGknO52uc/GrWILXAMs1BB4401GTqww0fw1bAqzpG1XHuDO+dprg4GvsD9ZLLSsdo78p9hQ==}
     engines: {node: '>=16'}
@@ -2302,7 +2283,7 @@ packages:
     resolution: {integrity: sha512-Ft6eCwONYxlwLjBXSJxw0t0RYtA5gW9mq8JfBXn9TtC0nDPlqePAhpv9v4g9aONBi6JI1OXHTKKkUYGd+BOrCA==}
     peerDependencies:
       '@libsql/client': ^0.5.2
-      better-sqlite3: ^9.4.3
+      better-sqlite3: ^11.4.0
       drizzle-orm: ^0.29.4
     peerDependenciesMeta:
       '@libsql/client':
@@ -6813,16 +6794,6 @@ snapshots:
     dependencies:
       '@types/node': 22.7.6
     optional: true
-
-  '@typeschema/core@0.13.2': {}
-
-  '@typeschema/valibot@0.13.5(valibot@0.29.0)':
-    dependencies:
-      '@typeschema/core': 0.13.2
-    optionalDependencies:
-      valibot: 0.29.0
-    transitivePeerDependencies:
-      - '@types/json-schema'
 
   '@vercel/nft@0.26.5':
     dependencies:
