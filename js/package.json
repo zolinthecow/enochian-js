@@ -1,6 +1,6 @@
 {
     "name": "enochian-js",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "An ergonmic LLM programming library",
     "main": "dist/index.js",
     "type": "module",
