@@ -1,0 +1,11 @@
+{
+    "lsp": {
+        "pyright": {
+            "settings": {
+                "python": {
+                    "pythonPath": "~/miniconda3/envs/enochian/bin/python"
+                }
+            }
+        }
+    }
+}
