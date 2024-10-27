@@ -1,8 +1,10 @@
+import os
 import sys
 import logging
 from pathlib import Path
 import subprocess
 from .installer import install_npm_dependencies
+from nodejs import node, npm, npx
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -32,12 +34,9 @@ def main():
 
     try:
         # Run the node script
-        subprocess.run(['PORT=56765', 'node', str(node_script)], check=True)
+        node.run([str(node_script)], env={'PORT': '56765'}, check=True)
     except subprocess.CalledProcessError as e:
         logger.error(f"Error running Node.js script: {e}")
-        sys.exit(1)
-    except FileNotFoundError:
-        logger.error("Node.js not found. Please ensure nodejs-bin is installed correctly.")
         sys.exit(1)
 
 if __name__ == '__main__':

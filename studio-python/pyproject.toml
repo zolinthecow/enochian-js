@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "enochian_studio"
-version = "0.0.1"
+version = "0.0.1.alpha1"
 description = "Python wrapper for enochian-studio npm package"
 requires-python = ">=3.8"
 authors = [
@@ -27,7 +27,7 @@ classifiers = [
 ]
 
 [project.scripts]
-enochian_studio = "enochian_studio.cli:main"
+enochian-studio = "enochian_studio.cli:main"
 
 [project.urls]
 Homepage = "https://zolinthecow.mintlify.app"
