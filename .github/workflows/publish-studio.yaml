@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  publish:
+  publish-js:
     if: startsWith(github.event.release.name, '[enochian-studio]')
     runs-on: ubuntu-latest
     steps:
@@ -18,12 +18,12 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: ".nvmrc"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          package_json_file: 'package.json'
+          package_json_file: "package.json"
 
       - name: Create .npmrc
         run: |
@@ -50,3 +50,32 @@ jobs:
         run: |
           pushd studio
           pnpm publish --no-git-checks
+  publish-py:
+    if: startsWith(github.event.release.name, '[enochian-studio]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Uses Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create .pypirc
+        run: |
+          echo "[pypi]" > ~/.pypirc
+          echo "username = __token__" >> ~/.pypirc
+          echo "password = $PYPI_TOKEN" >> ~/.pypirc
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+
+      - name: Build package
+        run: |
+          pushd studio-py
+          python -m build
+
+      - name: Publish to PyPi
+        run: |
+          pushd studio-py
+          twine check dist/*
+          twine upload dist/*
