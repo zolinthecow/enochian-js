@@ -2,6 +2,7 @@ import os
 import subprocess
 import logging
 from pathlib import Path
+from .node_runner import NodeRunner
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +26,8 @@ def install_npm_dependencies():
         }''')
 
     try:
-        subprocess.run(
-            ["npm", "install"],
-            check=True,
-            cwd=str(package_dir)
-        )
+        node_runner = NodeRunner()
+        node_runner.npm('install', cwd=str(package_dir))
         logger.info(f"Successfully installed npm dependencies in {node_modules}")
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to install npm dependencies: {e}")
