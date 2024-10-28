@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "nodejs-bin"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
@@ -9,9 +9,6 @@ description = "Python wrapper for enochian-studio npm package"
 requires-python = ">=3.8"
 authors = [
     { name = "Colin Zhao", email = "colinzhao777@gmail.com" }
-]
-dependencies = [
-    "nodejs-bin",  # Provides Node.js binary
 ]
 readme = "README.md"
 license = { file = "LICENSE" }
