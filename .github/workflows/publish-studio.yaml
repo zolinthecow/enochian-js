@@ -71,11 +71,12 @@ jobs:
 
       - name: Build package
         run: |
-          pushd studio-py
+          pushd studio-python
+          pip install hatchling build twine
           python -m build
 
       - name: Publish to PyPi
         run: |
-          pushd studio-py
+          pushd studio-python
           twine check dist/*
           twine upload dist/*
