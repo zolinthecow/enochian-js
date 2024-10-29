@@ -45,6 +45,7 @@ def start_server(port: int = 56765) -> ServerProcess:
         ServerProcess: Object containing the server process information and control methods
     """
     node_runner = NodeRunner()
+    node_runner.ensure_node_installed()
     ensure_dependencies()
 
     package_dir = Path(__file__).parent
