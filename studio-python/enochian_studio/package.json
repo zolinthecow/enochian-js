@@ -3,6 +3,6 @@
     "version": "1.0.0",
     "private": true,
     "dependencies": {
-        "@zolinthecow/enochian-studio": "0.0.1"
+        "@zolinthecow/enochian-studio": "0.0.2"
     }
 }
