@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import path from 'node:path';
 
 const packageRoot = path.resolve(import.meta.dirname, '..');
@@ -13,7 +13,18 @@ const runMigrations = () => {
 const startApp = (port) => {
     console.log(`Starting Enochian studio at http://localhost:${port}`);
     const serverPath = path.join(packageRoot, '.output', 'server', 'index.mjs');
-    execSync(`PORT=${port} node ${serverPath}`, { stdio: 'inherit' });
+
+    const server = spawn('node', [serverPath], {
+        stdio: 'inherit',
+        env: { ...process.env, PORT: port.toString() },
+    });
+
+    return server.pid;
+};
+
+export const run = (port) => {
+    runMigrations();
+    return startApp(port);
 };
 
 const main = () => {
@@ -22,8 +33,8 @@ const main = () => {
     const port = portIndex !== -1 ? args[portIndex + 1] : 56765;
 
     if (args[0] === 'studio') {
-        runMigrations();
-        startApp(port);
+        const serverPID = run(port);
+        console.log(`Server started with PID ${serverPID}`);
     } else {
         console.log('Unknown command. Use "studio" to start the app.');
         console.log('Options:');

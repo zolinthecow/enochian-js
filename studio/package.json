@@ -1,6 +1,6 @@
 {
     "name": "@zolinthecow/enochian-studio",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "A web client for viewing enochian requests",
     "type": "module",
     "bin": {
