@@ -44,6 +44,10 @@ def start_server(port: int = 56765) -> ServerProcess:
     Returns:
         ServerProcess: Object containing the server process information and control methods
     """
+    import pprint
+    import traceback
+    pprint.pp(traceback.format_stack())
+
     node_runner = NodeRunner()
     node_runner.ensure_node_installed()
     ensure_dependencies()
