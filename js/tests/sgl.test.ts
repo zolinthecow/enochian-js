@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { z } from 'zod';
-import ProgramState, { OpenAIBackend } from '../src/index.js';
+import ProgramState, { createTools, OpenAIBackend } from '../src/index.js';
 
 const IP = process.env.SGL_IP;
 const port = process.env.SGL_PORT;
@@ -142,7 +142,38 @@ describe('Basic functionality of the sgl ProgramState', () => {
             .add(
                 s.assistant`${s.gen('answer', { sampling_params: { zod_schema: schema } })}`,
             );
-        const profile = s.get('answer', schema);
+        const profile = s.get('answer', { from: 'zod', schema });
         expect(schema.safeParse(profile).success).toBe(true);
+    });
+
+    it('does tools correctly', async () => {
+        const s = new ProgramState();
+        await s.setModel(url);
+
+        const schema = z.object({
+            equation: z.string(),
+        });
+        function solveEquation(args: z.infer<typeof schema>) {
+            return 'mock function';
+        }
+        const tools = createTools([
+            {
+                function: solveEquation,
+                name: 'solveEquation',
+                params: schema,
+                description: 'Solves a math equation',
+            },
+        ]);
+        await s
+            .add(
+                s.system`You are an AI that cannot do math without a calculator.`,
+            )
+            .add(s.user`solve 8 + 3`)
+            .add(s.assistant`${s.gen('step', { tools })}`);
+        const resp = s.get('answer', { from: 'tools', tools });
+        expect(
+            resp.toolUsed === 'solveEquation' &&
+                resp.response === 'mock function',
+        ).toBe(true);
     });
 });
