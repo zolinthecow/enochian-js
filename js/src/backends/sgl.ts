@@ -60,22 +60,23 @@ export default class SGLBackend implements Backend {
         this._currentModel.path = modelInfo.model_path;
     }
 
-    gen(
+    async gen(
         message: Message[],
         genInput?: Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>,
     ): Promise<GenerateRespSingle>;
-    gen(
+    async gen(
         message: Message[],
         genInput?: Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
-    ): AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown>;
-    gen(
+    ): Promise<AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown>>;
+    async gen(
         messages: Message[],
         genInput?:
             | Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>
             | Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
-    ):
-        | Promise<GenerateRespSingle>
-        | AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown> {
+    ): Promise<
+        | GenerateRespSingle
+        | AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown>
+    > {
         assert(
             !genInput?.sampling_params?.n || genInput?.sampling_params?.n === 1,
             'Generating multiple responses is unimplemented.',
@@ -88,37 +89,42 @@ export default class SGLBackend implements Backend {
             'Cannot support both regex and json_schema',
         );
         if (genInput && !isNonStreamingInput(genInput)) {
-            return this._streamResponse(messages, genInput);
+            if (genInput.tools !== undefined) {
+                return await this._useTools(genInput.tools, messages, genInput);
+            } else {
+                return this._streamResponse(messages, genInput);
+            }
         } else {
             if (
                 genInput &&
                 isNonStreamingInput(genInput) &&
                 genInput?.choices !== undefined
             ) {
-                return this._selectChoice(genInput.choices, messages, genInput);
+                return await this._selectChoice(
+                    genInput.choices,
+                    messages,
+                    genInput,
+                );
             } else if (
                 genInput &&
                 isNonStreamingInput(genInput) &&
                 genInput?.tools !== undefined
             ) {
-                return this._useTools(genInput.tools, messages, genInput);
+                return await this._useTools(genInput.tools, messages, genInput);
             } else {
-                return (async () => {
-                    const httpResp = await this._sendGenerateRequest(
-                        messages,
-                        genInput,
-                    );
-                    const httpJson = await httpResp.json();
-                    const generateResp =
-                        GenerateRespSingleSchema.parse(httpJson);
+                const httpResp = await this._sendGenerateRequest(
+                    messages,
+                    genInput,
+                );
+                const httpJson = await httpResp.json();
+                const generateResp = GenerateRespSingleSchema.parse(httpJson);
 
-                    await this._postDebugStudioResponse(
-                        genInput?.debug,
-                        generateResp,
-                    );
+                await this._postDebugStudioResponse(
+                    genInput?.debug,
+                    generateResp,
+                );
 
-                    return generateResp;
-                })();
+                return generateResp;
             }
         }
     }
@@ -307,8 +313,23 @@ export default class SGLBackend implements Backend {
     private async _useTools(
         tools: ToolUseParams,
         messages: Message[],
-        genInput?: Omit<GenerateReqInput, 'text' | 'input_ids' | 'tools'>,
-    ): Promise<GenerateRespSingle> {
+        genInput?: Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>,
+    ): Promise<GenerateRespSingle>;
+    private async _useTools(
+        tools: ToolUseParams,
+        messages: Message[],
+        genInput?: Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
+    ): Promise<AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown>>;
+    private async _useTools(
+        tools: ToolUseParams,
+        messages: Message[],
+        genInput?:
+            | Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>
+            | Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
+    ): Promise<
+        | AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown>
+        | GenerateRespSingle
+    > {
         const toolParams = [
             ...tools.map((t) =>
                 t.params
@@ -354,39 +375,48 @@ export default class SGLBackend implements Backend {
         });
         const genJson = await genResponse.json();
         const parsedGenJson = GenerateRespSingleSchema.parse(genJson);
+        await this._postDebugStudioResponse(genInput?.debug, parsedGenJson);
         const toolDef = JSON.parse(parsedGenJson.text) as {
             toolName: string;
             params?: unknown;
         };
         if (toolDef.toolName === 'respondToUser') {
-            const directResponseResp = await this._sendGenerateRequest(
-                messages,
-                genInput,
-            );
-            const directRespJson = GenerateRespSingleSchema.parse(
-                await directResponseResp.json(),
-            );
-            return {
-                text: JSON.stringify({
-                    toolUsed: 'respondToUser',
-                    response: directRespJson.text,
-                }),
-                meta_info: {
-                    ...directRespJson.meta_info,
-                    prompt_tokens:
-                        parsedGenJson.meta_info.prompt_tokens +
-                        directRespJson.meta_info.prompt_tokens,
-                    completion_tokens:
-                        parsedGenJson.meta_info.completion_tokens +
-                        directRespJson.meta_info.completion_tokens,
-                    completion_tokens_wo_jump_forward:
-                        parsedGenJson.meta_info
-                            .completion_tokens_wo_jump_forward +
-                        directRespJson.meta_info
-                            .completion_tokens_wo_jump_forward,
-                },
-                index: directRespJson.index,
-            };
+            if (genInput && !isNonStreamingInput(genInput)) {
+                return this._streamResponse(messages, genInput);
+            } else {
+                const directResponseResp = await this._sendGenerateRequest(
+                    messages,
+                    genInput,
+                );
+                const directRespJson = GenerateRespSingleSchema.parse(
+                    await directResponseResp.json(),
+                );
+                await this._postDebugStudioResponse(
+                    genInput?.debug,
+                    directRespJson,
+                );
+                return {
+                    text: JSON.stringify({
+                        toolUsed: 'respondToUser',
+                        response: directRespJson.text,
+                    }),
+                    meta_info: {
+                        ...directRespJson.meta_info,
+                        prompt_tokens:
+                            parsedGenJson.meta_info.prompt_tokens +
+                            directRespJson.meta_info.prompt_tokens,
+                        completion_tokens:
+                            parsedGenJson.meta_info.completion_tokens +
+                            directRespJson.meta_info.completion_tokens,
+                        completion_tokens_wo_jump_forward:
+                            parsedGenJson.meta_info
+                                .completion_tokens_wo_jump_forward +
+                            directRespJson.meta_info
+                                .completion_tokens_wo_jump_forward,
+                    },
+                    index: directRespJson.index,
+                } as GenerateRespSingle;
+            }
         } else {
             const toolToUse = tools.find(
                 (t) => t.function.name === toolDef.toolName,
@@ -398,13 +428,11 @@ export default class SGLBackend implements Backend {
             }
             let toolFunctionResp: unknown;
             if (toolDef.params) {
-                toolFunctionResp = await toolToUse.function(
-                    ...Object.values(toolDef.params),
-                );
+                toolFunctionResp = await toolToUse.function(toolDef.params);
             } else {
                 toolFunctionResp = await toolToUse.function();
             }
-            return {
+            const toReturn: GenerateRespSingle = {
                 text: JSON.stringify({
                     toolUsed: toolDef.toolName,
                     response: toolFunctionResp,
@@ -412,6 +440,15 @@ export default class SGLBackend implements Backend {
                 meta_info: parsedGenJson.meta_info,
                 index: parsedGenJson.index,
             };
+            if (genInput && !isNonStreamingInput(genInput)) {
+                const generator = async function* () {
+                    yield toReturn;
+                    return toReturn;
+                };
+                return generator();
+            } else {
+                return toReturn;
+            }
         }
     }
 

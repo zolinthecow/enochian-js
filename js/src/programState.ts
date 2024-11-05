@@ -341,7 +341,7 @@ export default class ProgramState {
             const self = this;
             return async function* (messages: Message[]) {
                 // We expect the function to yield individual chunks, then return the final message
-                const generator = self._backend.gen(messages, {
+                const generator = await self._backend.gen(messages, {
                     ...genInput,
                     debug: self._debug,
                 });

@@ -24,15 +24,16 @@ export default interface Backend {
     gen(
         message: Message[],
         genInput?: Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
-    ): AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown>;
+    ): Promise<AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown>>;
     gen(
         messages: Message[],
         genInput?:
             | Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>
             | Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
-    ):
-        | Promise<GenerateRespSingle>
-        | AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown>;
+    ): Promise<
+        | GenerateRespSingle
+        | AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown>
+    >;
     getPrompt(messages: Message[]): string;
     clone(): Backend;
 }
