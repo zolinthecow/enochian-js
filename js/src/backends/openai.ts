@@ -1,12 +1,16 @@
 import assert from 'node:assert';
 import OpenAI, { type ClientOptions } from 'openai';
+import type { APIPromise } from 'openai/core.mjs';
 import { zodResponseFormat } from 'openai/helpers/zod.mjs';
+import type { Stream } from 'openai/src/streaming.js';
 import { ulid } from 'ulid';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import type {
     DebugInfo,
     GenerateReqNonStreamingInput,
     GenerateReqStreamingInput,
     GenerateRespSingle,
+    ToolUseParams,
 } from '../api.js';
 import { postStudioPrompt } from '../debug.js';
 import { isNonStreamingInput } from '../utils.js';
@@ -75,30 +79,61 @@ export default class OpenAIBackend implements Backend {
             'Choices not implemented for OpenAI.',
         );
         if (genInput && !isNonStreamingInput(genInput)) {
-            return this._streamResponse(messages, genInput);
+            if (genInput.tools) {
+                return this._useTools(genInput.tools, messages, genInput);
+            } else {
+                return this._streamResponse(messages, genInput);
+            }
         } else {
-            return await this._plainGeneration(messages, genInput);
+            if (genInput?.tools) {
+                return this._useTools(genInput.tools, messages, genInput);
+            } else {
+                return await this._plainGeneration(messages, genInput);
+            }
         }
+    }
+
+    private async _createChatCompletion<
+        T extends
+            | Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>
+            | Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
+    >(
+        messages: Message[],
+        debugReqID: string,
+        genInput?: T,
+    ): Promise<
+        GetChatCompletionReturnType<T extends { stream: true } ? true : false>
+    > {
+        const chatCompletionInput = genInputToChatCompletionInput(
+            messages,
+            this._modelName,
+            // @ts-ignore
+            genInput,
+        );
+        await this._postDebugStudioRequest(
+            genInput?.debug,
+            chatCompletionInput,
+            debugReqID,
+        );
+
+        const completion =
+            await this._openai.chat.completions.create(chatCompletionInput);
+
+        return completion as GetChatCompletionReturnType<
+            T extends { stream: true } ? true : false
+        >;
     }
 
     private async _plainGeneration(
         messages: Message[],
         genInput?: Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>,
     ): Promise<GenerateRespSingle> {
-        const chatCompletionInput = genInputToChatCompletionInput(
+        const debugReqID = ulid();
+        const completion = await this._createChatCompletion(
             messages,
-            this._modelName,
+            debugReqID,
             genInput,
         );
-        const debugReqId = ulid();
-        await this._postDebugStudioRequest(
-            genInput?.debug,
-            chatCompletionInput,
-            debugReqId,
-        );
-
-        const completion =
-            await this._openai.chat.completions.create(chatCompletionInput);
 
         if (genInput?.debug?.debugName) {
             await postStudioPrompt(
@@ -107,7 +142,7 @@ export default class OpenAIBackend implements Backend {
                     id: genInput?.debug?.debugPromptID ?? undefined,
                     requests: [
                         {
-                            id: debugReqId,
+                            id: debugReqID,
                             responseContent: JSON.stringify(
                                 completion.choices[0],
                             ),
@@ -130,35 +165,26 @@ export default class OpenAIBackend implements Backend {
             'text' | 'input_ids' | 'choices'
         >,
     ): AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown> {
-        let accumlatedMessage = '';
-        const completionCreateParams = genInputToChatCompletionInput(
+        let accumulatedMessage = '';
+        const debugReqID = ulid();
+
+        const completion = await this._createChatCompletion(
             messages,
-            this._modelName,
+            debugReqID,
             genInput,
         );
 
-        const debugReqId = ulid();
-
-        await this._postDebugStudioRequest(
-            genInput?.debug,
-            completionCreateParams,
-            debugReqId,
-        );
-
-        const completion = await this._openai.chat.completions.create(
-            completionCreateParams,
-        );
         let resp: GenerateRespSingle | undefined;
         for await (const chunk of completion) {
             // TODO: Parallel using index
-            accumlatedMessage += chunk.choices[0]?.delta.content ?? '';
+            accumulatedMessage += chunk.choices[0]?.delta.content ?? '';
             resp = chatCompletionChunkToGenRespSingle(chunk);
             if (chunk.choices.length !== 0) yield resp;
         }
         if (!resp) {
             throw new Error('No messages generated?');
         }
-        resp.text = accumlatedMessage;
+        resp.text = accumulatedMessage;
 
         if (genInput?.debug?.debugName) {
             await postStudioPrompt(
@@ -178,6 +204,151 @@ export default class OpenAIBackend implements Backend {
             );
         }
 
+        return resp;
+    }
+
+    private async _useTools(
+        tools: ToolUseParams,
+        messages: Message[],
+        genInput?: Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>,
+    ): Promise<GenerateRespSingle>;
+    private async _useTools(
+        tools: ToolUseParams,
+        messages: Message[],
+        genInput?: Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
+    ): Promise<AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown>>;
+    private async _useTools(
+        tools: ToolUseParams,
+        messages: Message[],
+        genInput?:
+            | Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>
+            | Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
+    ): Promise<
+        | AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown>
+        | GenerateRespSingle
+    > {
+        if (genInput && !isNonStreamingInput(genInput)) {
+            return this._useToolsStreaming(tools, messages, genInput);
+        } else {
+            return await this._useToolsNonStreaming(tools, messages, genInput);
+        }
+    }
+    private async _handleToolCalls(
+        tools: ToolUseParams,
+        toolCalls: OpenAI.Chat.Completions.ChatCompletionMessageToolCall[],
+    ) {
+        const functionResponses: { toolUsed: string; response: unknown }[] = [];
+        for (const toolCall of toolCalls) {
+            const selectedTool = tools.find(
+                (t) => t.name === toolCall.function.name,
+            );
+            assert(selectedTool, 'Selected nonexistant function');
+            let response: unknown;
+            if (selectedTool.params && toolCall.function.arguments !== '{}') {
+                response = await selectedTool.function(
+                    selectedTool.params.parse(
+                        JSON.parse(toolCall.function.arguments),
+                    ),
+                );
+            } else {
+                response = await selectedTool.function();
+            }
+            functionResponses.push({
+                toolUsed: selectedTool.name,
+                response,
+            });
+        }
+        return functionResponses;
+    }
+    private async _useToolsNonStreaming(
+        tools: ToolUseParams,
+        messages: Message[],
+        genInput?: Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>,
+    ): Promise<GenerateRespSingle> {
+        const debugReqID = ulid();
+        const completion = await this._createChatCompletion(
+            messages,
+            debugReqID,
+            genInput,
+        );
+
+        const resp = chatCompletionNonStreamingOutputToGenResp(completion);
+        if (completion.choices[0]?.message.tool_calls) {
+            const functionResponses = await this._handleToolCalls(
+                tools,
+                completion.choices[0]?.message.tool_calls,
+            );
+            resp.text = JSON.stringify(functionResponses);
+        }
+        return resp;
+    }
+    private async *_useToolsStreaming(
+        tools: ToolUseParams,
+        messages: Message[],
+        genInput?: Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
+    ) {
+        const debugReqID = ulid();
+        const completion = await this._createChatCompletion(
+            messages,
+            debugReqID,
+            genInput,
+        );
+
+        let isToolCall = false;
+        const toolCalls: OpenAI.Chat.Completions.ChatCompletionMessageToolCall[] =
+            [];
+        const curToolCall: OpenAI.Chat.Completions.ChatCompletionMessageToolCall =
+            {
+                id: 'abc123',
+                type: 'function',
+                function: {
+                    name: '',
+                    arguments: '',
+                },
+            };
+        let accumulatedMessage = '';
+        let resp: GenerateRespSingle | undefined;
+
+        for await (const chunk of completion) {
+            if (!isToolCall && chunk.choices[0]?.delta.tool_calls) {
+                isToolCall = true;
+            }
+            if (isToolCall) {
+                if (chunk.choices[0]?.delta.tool_calls?.[0]?.function?.name) {
+                    toolCalls.push(curToolCall);
+                    curToolCall.function.arguments = '';
+                    curToolCall.function.name =
+                        chunk.choices[0].delta.tool_calls[0].function.name;
+                } else {
+                    assert(
+                        chunk.choices[0]?.delta.tool_calls?.[0]?.function
+                            ?.arguments,
+                        'If not generating a function name it must be generating arguments',
+                    );
+                    curToolCall.function.arguments +=
+                        chunk.choices[0].delta.tool_calls[0].function.arguments;
+                }
+                resp = chatCompletionChunkToGenRespSingle(chunk);
+            } else {
+                accumulatedMessage += chunk.choices[0]?.delta.content ?? '';
+                resp = chatCompletionChunkToGenRespSingle(chunk);
+                if (chunk.choices.length !== 0) yield resp;
+            }
+        }
+
+        assert(
+            resp !== undefined,
+            'Tool call stream must generate at least one chunk',
+        );
+        if (!isToolCall) {
+            resp.text = accumulatedMessage;
+            return resp;
+        }
+
+        const functionResponses = await this._handleToolCalls(tools, toolCalls);
+        resp.text = JSON.stringify(functionResponses);
+
+        yield resp;
         return resp;
     }
 
@@ -259,6 +430,23 @@ function genInputToChatCompletionInput(
             include_usage: true,
         };
     }
+    if (genInput?.tools) {
+        bodyParams.tools = [];
+        for (const tool of genInput.tools) {
+            bodyParams.tools.push({
+                type: 'function',
+                function: {
+                    name: tool.name,
+                    description: tool.description,
+                    parameters: tool.params
+                        ? zodToJsonSchema(tool.params)
+                        : undefined,
+                    strict: true,
+                },
+            });
+        }
+    }
+
     return bodyParams;
 }
 
@@ -330,3 +518,24 @@ function chatCompletionChunkToGenRespSingle(
     };
     return resp;
 }
+
+// biome-ignore lint/suspicious/noExplicitAny: Needs to be any
+type GetOverloadReturnType<T, Args extends any[]> = T extends {
+    (...args: Args): infer R;
+    // biome-ignore lint/suspicious/noExplicitAny: Needs to be any
+    (...args: any): any;
+}
+    ? R
+    : T extends (...args: Args) => infer R
+      ? R
+      : never;
+
+const _openaiTypeHelper = null as unknown as OpenAI;
+type GetChatCompletionReturnType<T extends boolean> = T extends true
+    ? Awaited<
+          GetOverloadReturnType<
+              typeof _openaiTypeHelper.chat.completions.create,
+              [OpenAI.Chat.ChatCompletionCreateParamsStreaming]
+          >
+      >
+    : Awaited<APIPromise<OpenAI.Chat.Completions.ChatCompletion>>;
