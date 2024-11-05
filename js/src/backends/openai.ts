@@ -49,78 +49,78 @@ export default class OpenAIBackend implements Backend {
         if (modelName) this._modelName = modelName;
     }
 
-    gen(
+    async gen(
         message: Message[],
         genInput?: Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>,
     ): Promise<GenerateRespSingle>;
-    gen(
+    async gen(
         message: Message[],
         genInput?: Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
-    ): AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown>;
-    gen(
+    ): Promise<AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown>>;
+    async gen(
         messages: Message[],
         genInput?:
             | Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>
             | Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
-    ):
-        | Promise<GenerateRespSingle>
-        | AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown> {
+    ): Promise<
+        | GenerateRespSingle
+        | AsyncGenerator<GenerateRespSingle, GenerateRespSingle, unknown>
+    > {
         assert(
             !genInput?.sampling_params?.n || genInput?.sampling_params?.n === 1,
             'Generating multiple responses is unimplemented.',
         );
+        assert(
+            !(genInput && isNonStreamingInput(genInput) && genInput?.choices),
+            'Choices not implemented for OpenAI.',
+        );
         if (genInput && !isNonStreamingInput(genInput)) {
             return this._streamResponse(messages, genInput);
         } else {
-            return (async () => {
-                if (
-                    genInput &&
-                    isNonStreamingInput(genInput) &&
-                    genInput?.choices
-                ) {
-                    throw new Error('Choices not implemented for OpenAI.');
-                }
-
-                const chatCompletionInput = genInputToChatCompletionInput(
-                    messages,
-                    this._modelName,
-                    genInput,
-                );
-                const debugReqId = ulid();
-                await this._postDebugStudioRequest(
-                    genInput?.debug,
-                    chatCompletionInput,
-                    debugReqId,
-                );
-
-                const completion =
-                    await this._openai.chat.completions.create(
-                        chatCompletionInput,
-                    );
-
-                if (genInput?.debug?.debugName) {
-                    await postStudioPrompt(
-                        {
-                            type: genInput?.debug?.debugName,
-                            id: genInput?.debug?.debugPromptID ?? undefined,
-                            requests: [
-                                {
-                                    id: debugReqId,
-                                    responseContent: JSON.stringify(
-                                        completion.choices[0],
-                                    ),
-                                    responseMetadata: completion,
-                                    responseTimestamp: new Date().toISOString(),
-                                },
-                            ],
-                        },
-                        genInput.debug,
-                    );
-                }
-
-                return chatCompletionNonStreamingOutputToGenResp(completion);
-            })();
+            return await this._plainGeneration(messages, genInput);
         }
+    }
+
+    private async _plainGeneration(
+        messages: Message[],
+        genInput?: Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>,
+    ): Promise<GenerateRespSingle> {
+        const chatCompletionInput = genInputToChatCompletionInput(
+            messages,
+            this._modelName,
+            genInput,
+        );
+        const debugReqId = ulid();
+        await this._postDebugStudioRequest(
+            genInput?.debug,
+            chatCompletionInput,
+            debugReqId,
+        );
+
+        const completion =
+            await this._openai.chat.completions.create(chatCompletionInput);
+
+        if (genInput?.debug?.debugName) {
+            await postStudioPrompt(
+                {
+                    type: genInput?.debug?.debugName,
+                    id: genInput?.debug?.debugPromptID ?? undefined,
+                    requests: [
+                        {
+                            id: debugReqId,
+                            responseContent: JSON.stringify(
+                                completion.choices[0],
+                            ),
+                            responseMetadata: completion,
+                            responseTimestamp: new Date().toISOString(),
+                        },
+                    ],
+                },
+                genInput.debug,
+            );
+        }
+
+        return chatCompletionNonStreamingOutputToGenResp(completion);
     }
 
     private async *_streamResponse(

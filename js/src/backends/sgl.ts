@@ -112,19 +112,7 @@ export default class SGLBackend implements Backend {
             ) {
                 return await this._useTools(genInput.tools, messages, genInput);
             } else {
-                const httpResp = await this._sendGenerateRequest(
-                    messages,
-                    genInput,
-                );
-                const httpJson = await httpResp.json();
-                const generateResp = GenerateRespSingleSchema.parse(httpJson);
-
-                await this._postDebugStudioResponse(
-                    genInput?.debug,
-                    generateResp,
-                );
-
-                return generateResp;
+                return await this._plainGeneration(messages, genInput);
             }
         }
     }
@@ -148,6 +136,19 @@ export default class SGLBackend implements Backend {
             }
         }
         return newMessages;
+    }
+
+    private async _plainGeneration(
+        messages: Message[],
+        genInput?: Omit<GenerateReqInput, 'text' | 'input_ids'>,
+    ): Promise<GenerateRespSingle> {
+        const httpResp = await this._sendGenerateRequest(messages, genInput);
+        const httpJson = await httpResp.json();
+        const generateResp = GenerateRespSingleSchema.parse(httpJson);
+
+        await this._postDebugStudioResponse(genInput?.debug, generateResp);
+
+        return generateResp;
     }
 
     private async *_streamResponse(
