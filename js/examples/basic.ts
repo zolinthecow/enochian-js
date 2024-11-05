@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import ProgramState from '../src/programState.js';
 
 export async function run() {
@@ -9,13 +10,15 @@ export async function run() {
         question2: string,
     ): Promise<[string | undefined, string | undefined]> {
         await s.setModel('http://localhost:30000');
-        await s
-            .add(s.system`You are a helpful assistant.`)
-            .add(s.user`${question1}`)
-            .add(s.assistant`${s.gen('answer1')}`);
-        await s
-            .add(s.user`${question2}`)
-            .add(s.assistant`No problem! ${s.gen('answer2')}`);
+        // await s
+        //     .add(s.system`You are a helpful assistant.`)
+        //     .add(s.user`${question1}`)
+        //     .add(s.assistant`${s.gen("answer1")}`);
+        // await s
+        //     .add(s.user`${question2}`)
+        //     .add(s.assistant`No problem! ${s.gen("answer2")}`);
+        s.gen('answer3', { sampling_params: { zod_schema: z.string() } });
+        const a = s.get2('answer3');
         return [s.get('answer1'), s.get('answer2')];
     }
 

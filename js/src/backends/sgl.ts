@@ -1,8 +1,9 @@
 import assert from 'node:assert';
 import { ulid } from 'ulid';
+import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
-    type Debug,
+    type DebugInfo,
     type GenerateReqInput,
     type GenerateReqNonStreamingInput,
     type GenerateReqStreamingInput,
@@ -13,6 +14,7 @@ import {
     GetModelInfoSchema,
     type MetaInfo,
     type MetaInfoWithLogprobs,
+    type ToolUseParams,
 } from '../api.js';
 import { ChatTemplateGroup } from '../chatTemplate.js';
 import { tokenLengthNormalized } from '../choices.js';
@@ -94,6 +96,12 @@ export default class SGLBackend implements Backend {
                 genInput?.choices !== undefined
             ) {
                 return this._selectChoice(genInput.choices, messages, genInput);
+            } else if (
+                genInput &&
+                isNonStreamingInput(genInput) &&
+                genInput?.tools !== undefined
+            ) {
+                return this._useTools(genInput.tools, messages, genInput);
             } else {
                 return (async () => {
                     const httpResp = await this._sendGenerateRequest(
@@ -296,6 +304,117 @@ export default class SGLBackend implements Backend {
         };
     }
 
+    private async _useTools(
+        tools: ToolUseParams,
+        messages: Message[],
+        genInput?: Omit<GenerateReqInput, 'text' | 'input_ids' | 'tools'>,
+    ): Promise<GenerateRespSingle> {
+        const toolParams = [
+            ...tools.map((t) =>
+                t.params
+                    ? z.object({
+                          toolName: z.literal(t.function.name),
+                          parameters: t.params,
+                      })
+                    : z.object({ toolName: z.literal(t.function.name) }),
+            ),
+            z.object({ toolName: z.literal('respondToUser') }),
+        ];
+        const jsonSchema = {
+            anyOf: toolParams.map((t) => zodToJsonSchema(t)),
+            $schema: 'http://json-schema.org/draft-07/schema#',
+        };
+        const messagesWithTools: Message[] = [];
+        let putToolsPromptIn = false;
+        for (const message of messages) {
+            if (message.role !== 'system' && !putToolsPromptIn) {
+                messagesWithTools.push({
+                    role: 'system',
+                    content: `${
+                        'You have access to the following tools:\n' +
+                        tools
+                            .map(
+                                (t) =>
+                                    `${t.function.name}: ${t.description ?? 'A function'}`,
+                            )
+                            .join(',\n') +
+                        ', and respondToUser: Directly respond to the user\n.'
+                    }`,
+                });
+                putToolsPromptIn = true;
+            }
+            messagesWithTools.push(message);
+        }
+        const genResponse = await this._sendGenerateRequest(messagesWithTools, {
+            ...genInput,
+            sampling_params: {
+                ...genInput?.sampling_params,
+                json_schema: JSON.stringify(jsonSchema),
+            },
+        });
+        const genJson = await genResponse.json();
+        const parsedGenJson = GenerateRespSingleSchema.parse(genJson);
+        const toolDef = JSON.parse(parsedGenJson.text) as {
+            toolName: string;
+            params?: unknown;
+        };
+        if (toolDef.toolName === 'respondToUser') {
+            const directResponseResp = await this._sendGenerateRequest(
+                messages,
+                genInput,
+            );
+            const directRespJson = GenerateRespSingleSchema.parse(
+                await directResponseResp.json(),
+            );
+            return {
+                text: JSON.stringify({
+                    toolUsed: 'respondToUser',
+                    response: directRespJson.text,
+                }),
+                meta_info: {
+                    ...directRespJson.meta_info,
+                    prompt_tokens:
+                        parsedGenJson.meta_info.prompt_tokens +
+                        directRespJson.meta_info.prompt_tokens,
+                    completion_tokens:
+                        parsedGenJson.meta_info.completion_tokens +
+                        directRespJson.meta_info.completion_tokens,
+                    completion_tokens_wo_jump_forward:
+                        parsedGenJson.meta_info
+                            .completion_tokens_wo_jump_forward +
+                        directRespJson.meta_info
+                            .completion_tokens_wo_jump_forward,
+                },
+                index: directRespJson.index,
+            };
+        } else {
+            const toolToUse = tools.find(
+                (t) => t.function.name === toolDef.toolName,
+            );
+            if (!toolToUse) {
+                throw new Error(
+                    `No tool was selected: ${JSON.stringify(parsedGenJson, null, 2)}`,
+                );
+            }
+            let toolFunctionResp: unknown;
+            if (toolDef.params) {
+                toolFunctionResp = await toolToUse.function(
+                    ...Object.values(toolDef.params),
+                );
+            } else {
+                toolFunctionResp = await toolToUse.function();
+            }
+            return {
+                text: JSON.stringify({
+                    toolUsed: toolDef.toolName,
+                    response: toolFunctionResp,
+                }),
+                meta_info: parsedGenJson.meta_info,
+                index: parsedGenJson.index,
+            };
+        }
+    }
+
     private _messagesToPrompt(messages: Message[]): string {
         const concatedMessages = this._getConcatedMessages(messages);
         const template = this._chatTemplateGroup.match(this._currentModel.path);
@@ -324,13 +443,13 @@ export default class SGLBackend implements Backend {
             reqId = genInput?.rid ?? messages.map((_) => ulid());
         }
 
-        let jsonSchema = undefined;
+        let jsonSchema: string | undefined =
+            genInput?.sampling_params?.json_schema;
         if (genInput?.sampling_params?.zod_schema) {
-            jsonSchema = zodToJsonSchema(
-                genInput?.sampling_params?.zod_schema,
-                {
+            jsonSchema = JSON.stringify(
+                zodToJsonSchema(genInput?.sampling_params?.zod_schema, {
                     emailStrategy: 'pattern:zod',
-                },
+                }),
             );
         }
 
@@ -354,7 +473,7 @@ export default class SGLBackend implements Backend {
                 spaces_between_special_tokens: true,
                 n: 1,
                 ...genInput?.sampling_params,
-                json_schema: JSON.stringify(jsonSchema),
+                json_schema: jsonSchema,
                 zod_schema: undefined,
             },
         };
@@ -406,7 +525,7 @@ export default class SGLBackend implements Backend {
     }
 
     private async _postDebugStudioResponse(
-        debug: Debug | undefined | null,
+        debug: DebugInfo | undefined | null,
         resp: GenerateResp,
     ) {
         if (debug?.debugName) {

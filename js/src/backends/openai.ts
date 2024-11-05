@@ -3,7 +3,7 @@ import OpenAI, { type ClientOptions } from 'openai';
 import { zodResponseFormat } from 'openai/helpers/zod.mjs';
 import { ulid } from 'ulid';
 import type {
-    Debug,
+    DebugInfo,
     GenerateReqNonStreamingInput,
     GenerateReqStreamingInput,
     GenerateRespSingle,
@@ -182,7 +182,7 @@ export default class OpenAIBackend implements Backend {
     }
 
     private async _postDebugStudioRequest(
-        debug: Debug | undefined | null,
+        debug: DebugInfo | undefined | null,
         req: OpenAI.Chat.ChatCompletionCreateParams,
         reqId: string,
     ) {
