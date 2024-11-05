@@ -522,6 +522,7 @@ export default class SGLBackend implements Backend {
             reqInput.text = this._messagesToPrompt(messages);
         }
 
+        await this._postDebugStudioRequest(genInput?.debug, reqInput);
         const options = {
             method: 'POST',
             headers: {
@@ -530,38 +531,49 @@ export default class SGLBackend implements Backend {
             body: JSON.stringify(reqInput),
         };
 
-        if (genInput?.debug?.debugName) {
+        const resp = await fetch(`${this._currentModel.url}/generate`, options);
+        return resp;
+    }
+
+    private async _postDebugStudioRequest(
+        debug: DebugInfo | undefined | null,
+        req: Omit<GenerateReqInput, 'debug' | 'zod_schema'>,
+    ) {
+        if (debug?.debugName) {
+            assert(
+                req.rid != null &&
+                    (Array.isArray(req.rid)
+                        ? req.rid.every((r) => r != null)
+                        : true),
+                'Must provide request ID for debug studio.',
+            );
             await postStudioPrompt(
                 {
-                    type: genInput.debug.debugName,
-                    id: genInput.debug.debugPromptID ?? undefined,
-                    requests: Array.isArray(reqInput.text)
-                        ? reqInput.text.map((t, i) => ({
-                              id: (reqId as string[])[i],
+                    type: debug.debugName,
+                    id: debug.debugPromptID ?? undefined,
+                    requests: Array.isArray(req.text)
+                        ? req.text.map((t, i) => ({
+                              id: (req.rid as string[])[i],
                               requestPrompt: t,
-                              requestMetadata: { ...reqInput, text: undefined },
+                              requestMetadata: { ...req, text: undefined },
                               requestTimestamp: new Date().toISOString(),
                           }))
                         : [
                               {
-                                  id: reqId,
-                                  requestPrompt: reqInput.text,
+                                  id: req.rid,
+                                  requestPrompt: req.text,
                                   requestMetadata: {
-                                      ...reqInput,
+                                      ...req,
                                       text: undefined,
                                   },
                                   requestTimestamp: new Date().toISOString(),
                               },
                           ],
                 },
-                genInput.debug,
+                debug,
             );
         }
-
-        const resp = await fetch(`${this._currentModel.url}/generate`, options);
-        return resp;
     }
-
     private async _postDebugStudioResponse(
         debug: DebugInfo | undefined | null,
         resp: GenerateResp,

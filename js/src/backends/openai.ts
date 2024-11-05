@@ -2,7 +2,6 @@ import assert from 'node:assert';
 import OpenAI, { type ClientOptions } from 'openai';
 import type { APIPromise } from 'openai/core.mjs';
 import { zodResponseFormat } from 'openai/helpers/zod.mjs';
-import type { Stream } from 'openai/src/streaming.js';
 import { ulid } from 'ulid';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import type {
@@ -135,27 +134,10 @@ export default class OpenAIBackend implements Backend {
             genInput,
         );
 
-        if (genInput?.debug?.debugName) {
-            await postStudioPrompt(
-                {
-                    type: genInput?.debug?.debugName,
-                    id: genInput?.debug?.debugPromptID ?? undefined,
-                    requests: [
-                        {
-                            id: debugReqID,
-                            responseContent: JSON.stringify(
-                                completion.choices[0],
-                            ),
-                            responseMetadata: completion,
-                            responseTimestamp: new Date().toISOString(),
-                        },
-                    ],
-                },
-                genInput.debug,
-            );
-        }
+        const resp = chatCompletionNonStreamingOutputToGenResp(completion);
+        await this._postDebugStudioResponse(genInput?.debug, resp, debugReqID);
 
-        return chatCompletionNonStreamingOutputToGenResp(completion);
+        return resp;
     }
 
     private async *_streamResponse(
@@ -186,23 +168,7 @@ export default class OpenAIBackend implements Backend {
         }
         resp.text = accumulatedMessage;
 
-        if (genInput?.debug?.debugName) {
-            await postStudioPrompt(
-                {
-                    type: genInput?.debug?.debugName,
-                    id: genInput?.debug?.debugPromptID ?? undefined,
-                    requests: [
-                        {
-                            id: resp.meta_info.id,
-                            responseContent: resp.text,
-                            responseMetadata: resp.meta_info,
-                            responseTimestamp: new Date().toISOString(),
-                        },
-                    ],
-                },
-                genInput.debug,
-            );
-        }
+        await this._postDebugStudioResponse(genInput?.debug, resp, debugReqID);
 
         return resp;
     }
@@ -280,6 +246,9 @@ export default class OpenAIBackend implements Backend {
             );
             resp.text = JSON.stringify(functionResponses);
         }
+
+        await this._postDebugStudioResponse(genInput?.debug, resp, debugReqID);
+
         return resp;
     }
     private async *_useToolsStreaming(
@@ -348,8 +317,34 @@ export default class OpenAIBackend implements Backend {
         const functionResponses = await this._handleToolCalls(tools, toolCalls);
         resp.text = JSON.stringify(functionResponses);
 
+        await this._postDebugStudioResponse(genInput?.debug, resp, debugReqID);
+
         yield resp;
         return resp;
+    }
+
+    private async _postDebugStudioResponse(
+        debug: DebugInfo | undefined | null,
+        resp: GenerateRespSingle,
+        reqID: string,
+    ) {
+        if (debug?.debugName) {
+            await postStudioPrompt(
+                {
+                    type: debug?.debugName,
+                    id: debug?.debugPromptID ?? undefined,
+                    requests: [
+                        {
+                            id: resp.meta_info.id,
+                            responseContent: resp.text,
+                            responseMetadata: resp.meta_info,
+                            responseTimestamp: new Date().toISOString(),
+                        },
+                    ],
+                },
+                debug,
+            );
+        }
     }
 
     private async _postDebugStudioRequest(
