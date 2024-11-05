@@ -1,12 +1,30 @@
 import { z } from 'zod';
 
-export type Tool = {
-    // biome-ignore lint/complexity/noBannedTypes: Needs generic function
-    function: Function;
+// biome-ignore lint/suspicious/noExplicitAny: needs any type
+type Tool<TName extends string = string, TReturn = any> = {
+    // biome-ignore lint/suspicious/noExplicitAny: needs any type
+    function: (...args: any[]) => TReturn | Promise<TReturn>;
+    name: TName;
     params?: z.ZodSchema;
     description?: string;
 };
-export type ToolUseParams = Tool[];
+
+// The createTools function with explicit type annotations
+export function createTools<
+    const T extends Array<{
+        // biome-ignore lint/suspicious/noExplicitAny: needs any type
+        function: (...args: any[]) => any;
+        name: string;
+        params?: z.ZodSchema;
+        description?: string;
+    }>,
+>(
+    tools: T,
+): { [K in keyof T]: Tool<T[K]['name'], ReturnType<T[K]['function']>> } {
+    // biome-ignore lint/suspicious/noExplicitAny: needs any type
+    return tools as any;
+}
+export type ToolUseParams = ReturnType<typeof createTools>;
 
 export type DebugInfo = {
     baseUrl: string;

@@ -1,8 +1,7 @@
 // DBOS Durable Agent
 import { Step, type StepContext } from '@dbos-inc/dbos-sdk';
 import { z } from 'zod';
-import { OpenAIBackend } from '../src/index.js';
-import ProgramState from '../src/programState.js';
+import ProgramState, { OpenAIBackend, createTools } from '../src/index.js';
 
 class RefundAgent {
     static processRefund(userName: string, itemID: number, _reason?: string) {
@@ -46,13 +45,15 @@ class RefundAgent {
             }`,
         );
 
-        const tools = [
+        const tools = createTools([
             {
                 function: RefundAgent.applyDiscount,
+                name: 'applyDiscount',
                 description: 'Provide a discount of 11% on their next order',
             },
             {
                 function: RefundAgent.processRefund,
+                name: 'processRefund',
                 params: z.object({
                     userName: z.string(),
                     itemID: z.number(),
@@ -60,7 +61,7 @@ class RefundAgent {
                 }),
                 description: 'Process a refund request',
             },
-        ];
+        ]);
 
         while (true) {
             await s.add(

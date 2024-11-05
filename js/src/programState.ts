@@ -385,11 +385,15 @@ export default class ProgramState {
     get<T extends ToolUseParams>(
         key: string,
         options: { from: 'tools'; tools: T },
-    ): ToolResponse<T> & RespondToUserTool;
+    ): ToolResponse<T> | { toolUsed: 'respondToUser'; response: string };
     get<Z extends z.ZodType, T extends ToolUseParams>(
         key: string,
         options?: { from: 'zod'; schema: Z } | { from: 'tools'; tools: T },
-    ): string | z.infer<Z> | (ToolResponse<T> & RespondToUserTool) | undefined {
+    ):
+        | string
+        | z.infer<Z>
+        | (ToolResponse<T> | { toolUsed: 'respondToUser'; response: string })
+        | undefined {
         const value = this._answers[key]?.text;
         if (!value) return undefined;
 
@@ -400,7 +404,9 @@ export default class ProgramState {
             return options.schema.parse(JSON.parse(value));
         }
         if (options.from === 'tools') {
-            return JSON.parse(value) as ToolResponse<T>;
+            return JSON.parse(value) as
+                | ToolResponse<T>
+                | { toolUsed: 'respondToUser'; response: string };
         }
     }
 
@@ -501,26 +507,9 @@ function isAsyncMessageGenerator(
     );
 }
 
-type FunctionName<T> = T extends { name: infer Name }
-    ? Name extends string
-        ? Name
-        : never
-    : never;
-
-type AsyncReturnType<T> = T extends (...args: unknown[]) => Promise<infer R>
-    ? R
-    : T extends (...args: unknown[]) => infer R
-      ? R
-      : never;
-
-type ToolResponse<T extends Tool[]> = {
+type ToolResponse<T extends ToolUseParams> = {
     [K in keyof T]: {
-        toolUsed: FunctionName<T[K]['function']>;
-        response: AsyncReturnType<T[K]['function']>;
+        toolUsed: T[K]['name'];
+        response: Awaited<ReturnType<T[K]['function']>>;
     };
 }[number];
-
-type RespondToUserTool = {
-    toolUsed: 'respondToUser';
-    response: string;
-};
