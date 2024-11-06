@@ -385,14 +385,14 @@ export default class ProgramState {
     get<T extends ToolUseParams>(
         key: string,
         options: { from: 'tools'; tools: T },
-    ): ToolResponse<T> | { toolUsed: 'respondToUser'; response: string };
+    ): (ToolResponse<T> | { toolUsed: 'respondToUser'; response: string })[];
     get<Z extends z.ZodType, T extends ToolUseParams>(
         key: string,
         options?: { from: 'zod'; schema: Z } | { from: 'tools'; tools: T },
     ):
         | string
         | z.infer<Z>
-        | (ToolResponse<T> | { toolUsed: 'respondToUser'; response: string })
+        | (ToolResponse<T> | { toolUsed: 'respondToUser'; response: string })[]
         | undefined {
         const value = this._answers[key]?.text;
         if (!value) return undefined;

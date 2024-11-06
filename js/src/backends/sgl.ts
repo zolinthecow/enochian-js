@@ -397,10 +397,12 @@ export default class SGLBackend implements Backend {
                     directRespJson,
                 );
                 return {
-                    text: JSON.stringify({
-                        toolUsed: 'respondToUser',
-                        response: directRespJson.text,
-                    }),
+                    text: JSON.stringify([
+                        {
+                            toolUsed: 'respondToUser',
+                            response: directRespJson.text,
+                        },
+                    ]),
                     meta_info: {
                         ...directRespJson.meta_info,
                         prompt_tokens:
@@ -434,10 +436,12 @@ export default class SGLBackend implements Backend {
                 toolFunctionResp = await toolToUse.function();
             }
             const toReturn: GenerateRespSingle = {
-                text: JSON.stringify({
-                    toolUsed: toolDef.toolName,
-                    response: toolFunctionResp,
-                }),
+                text: JSON.stringify([
+                    {
+                        toolUsed: toolDef.toolName,
+                        response: toolFunctionResp,
+                    },
+                ]),
                 meta_info: parsedGenJson.meta_info,
                 index: parsedGenJson.index,
             };

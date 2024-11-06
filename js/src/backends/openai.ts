@@ -1,8 +1,9 @@
 import assert from 'node:assert';
 import OpenAI, { type ClientOptions } from 'openai';
 import type { APIPromise } from 'openai/core.mjs';
-import { zodResponseFormat } from 'openai/helpers/zod.mjs';
+import { zodFunction, zodResponseFormat } from 'openai/helpers/zod.mjs';
 import { ulid } from 'ulid';
+import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import type {
     DebugInfo,
@@ -245,6 +246,13 @@ export default class OpenAIBackend implements Backend {
                 completion.choices[0]?.message.tool_calls,
             );
             resp.text = JSON.stringify(functionResponses);
+        } else {
+            resp.text = JSON.stringify([
+                {
+                    toolUsed: 'respondToUser',
+                    response: resp.text,
+                },
+            ]);
         }
 
         await this._postDebugStudioResponse(genInput?.debug, resp, debugReqID);
@@ -310,7 +318,12 @@ export default class OpenAIBackend implements Backend {
             'Tool call stream must generate at least one chunk',
         );
         if (!isToolCall) {
-            resp.text = accumulatedMessage;
+            resp.text = JSON.stringify([
+                {
+                    toolUsed: 'respondToUser',
+                    response: accumulatedMessage,
+                },
+            ]);
             return resp;
         }
 
@@ -428,17 +441,31 @@ function genInputToChatCompletionInput(
     if (genInput?.tools) {
         bodyParams.tools = [];
         for (const tool of genInput.tools) {
-            bodyParams.tools.push({
-                type: 'function',
-                function: {
+            bodyParams.tools.push(
+                zodFunction({
                     name: tool.name,
                     description: tool.description,
-                    parameters: tool.params
-                        ? zodToJsonSchema(tool.params)
-                        : undefined,
-                    strict: true,
-                },
-            });
+                    parameters: tool.params ?? z.object({}),
+                }),
+            );
+            // bodyParams.tools.push({
+            //     type: "function",
+            //     function: {
+            //         name: tool.name,
+            //         description: tool.description,
+            //         parameters: tool.params
+            //             ? {
+            //                   ...zodToJsonSchema(tool.params),
+            //                   additionalProperties: false,
+            //               }
+            //             : {
+            //                   type: "object",
+            //                   properties: {},
+            //                   additionalProperties: false,
+            //               },
+            //         strict: true,
+            //     },
+            // });
         }
     }
 

@@ -40,8 +40,13 @@ class RefundAgent {
 }
 
 (async () => {
-    const s = new ProgramState();
-    await s.setModel('http://localhost:30000');
+    // const s = new ProgramState();
+    // await s.setModel('http://localhost:30000');
+    const s = new ProgramState(
+        new OpenAIBackend({ apiKey: process.env.OPENAI_API_KEY }),
+    );
+    s.setModel('gpt-4o-mini');
+    // s.beginDebugRegion({ debugName: "Tool calling" });
 
     const tools = createTools([
         {
@@ -81,12 +86,16 @@ class RefundAgent {
             console.error(`No tool was used: ${action}`);
             return;
         }
-        if (action.toolUsed === 'respondToUser') {
-            console.log(action.response);
+        if (action.some((a) => a.toolUsed === 'respondToUser')) {
+            console.log(
+                action.find((a) => a.toolUsed === 'respondToUser')?.response,
+            );
             break;
         }
-        s.add(
-            s.user`${action.toolUsed} Result: ${JSON.stringify(action.response)}`,
-        );
+        for (const toolUsed of action) {
+            s.add(
+                s.user`${toolUsed.toolUsed} Result: ${JSON.stringify(toolUsed.response)}`,
+            );
+        }
     }
 })();
