@@ -1,6 +1,32 @@
 import { z } from 'zod';
 
-export type Debug = {
+// biome-ignore lint/suspicious/noExplicitAny: needs any type
+type Tool<TName extends string = string, TReturn = any> = {
+    // biome-ignore lint/suspicious/noExplicitAny: needs any type
+    function: (...args: any[]) => TReturn | Promise<TReturn>;
+    name: TName;
+    params?: z.ZodSchema;
+    description?: string;
+};
+
+// The createTools function with explicit type annotations
+export function createTools<
+    const T extends Array<{
+        // biome-ignore lint/suspicious/noExplicitAny: needs any type
+        function: (...args: any[]) => any;
+        name: string;
+        params?: z.ZodSchema;
+        description?: string;
+    }>,
+>(
+    tools: T,
+): { [K in keyof T]: Tool<T[K]['name'], ReturnType<T[K]['function']>> } {
+    // biome-ignore lint/suspicious/noExplicitAny: needs any type
+    return tools as any;
+}
+export type ToolUseParams = ReturnType<typeof createTools>;
+
+export type DebugInfo = {
     baseUrl: string;
     port: number;
     debugName: string | null;
@@ -37,7 +63,9 @@ type GenerateReqInputBase = {
     /** Whether to detokenize tokens in text in the returned logprobs. */
     return_text_in_logprobs?: boolean;
     /** Enochian studio debug info */
-    debug?: Debug | null;
+    debug?: DebugInfo | null;
+    /** Tools */
+    tools?: ToolUseParams;
 };
 
 // DOCS COVERAGE: /api-reference/request-types
@@ -111,7 +139,7 @@ export type SamplingParams = {
      * Constrains the output to follow a given Zod schema.
      * Generates a `json_schema` and overrides whatever was set in it.
      */
-    zod_schema?: z.ZodType;
+    zod_schema?: z.ZodSchema;
     /**
      * Float that penalizes new tokens based on their frequency in the generated text so far.
      * Values > 0 encourage the model to use new tokens, while values < 0 encourage the model to
@@ -188,7 +216,7 @@ export type MetaInfo = z.infer<typeof MetaInfoSchema>;
 export const GenerateRespSingleSchema = z.object({
     text: z.string(),
     meta_info: MetaInfoSchema,
-    index: z.number(),
+    index: z.number().optional(),
 });
 export type GenerateRespSingle = z.infer<typeof GenerateRespSingleSchema>;
 

@@ -39,20 +39,20 @@ console.log(s.get('joke'));
 ## First-class Typescript support
 
 Enochian also strives to deliver the best-in-class DX for LLM programming libraries. Many libraries are built with typescript or at least provide types for their API, but few are built with
-typescript fully in mind. Enochian knows the full state of your program at any point in time, including the answers that were generated and the backend it's currently pointed to. You'll never
+typescript fully in mind. Enochian knows the full state of your program at any point in time. You'll never
 have to guess which parameters you should be passing into a function, your IDE will always tell you.
 
 ## Useful abstractions
 
 Enochian offers just the right level of abstraction. It provides useful primitives for you to write your workflow without hiding any details away from you. A few examples include
 - Logit-based choices to force the LLM to choose the best out of provided options
+- Constrained decoding to force the LLM to follow an arbitrary zod schema
+- Tool use with actual function calling
 - Sentence generation to limit the LLM to generate a variable number of sentences (planned)
-- Constrained decoding to force the LLM to follow any pattern you want (planned)
 
 ## Acknowledgements
 
 The design for this was inspired from many amazing libraries that came before it
 - [SGLang](https://github.com/sgl-project/sglang)
-- [Priompt](https://github.com/anysphere/priompt)
 
 Now, enough with the overview. Let's get started!

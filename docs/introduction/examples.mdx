@@ -111,7 +111,7 @@ console.log(s.get('answer1'), s.getMetaInfo('answer1'));
 ## Constrained decoding
 
 For structured outputs, you can pass in either a regex, a [JsonSchema](https://json-schema.org/), or a
-(zod)[https://zod.dev/] schema inside [`SamplingParams`](/api-reference/request-types#SamplingParams).
+[zod](https://zod.dev/) schema inside [`SamplingParams`](/api-reference/request-types#SamplingParams).
 Zod types are the preferred way since it allows for type safety in the [`.get`](/api-reference/program-state#get).
 
 ```typescript
@@ -143,9 +143,100 @@ await s
     .add(
         s.assistant`${s.gen('answer', { sampling_params: { zod_schema: schema } })}`,
     );
-const profile = s.get('answer', schema);
+const profile = s.get('answer', { with: 'zod', schema });
 console.log(profile);
 ```
 
-<Note>If you know how to make the return type of `.get` automatically inferred by the schema passed into
-`.gen`, please let me know!</Note>
+## Tool Calling
+
+You can provide the LLM some tools that it can optionally use per generation. You should use the
+`createTools` util which will allow for greater type inference when retrieving the result.
+
+```typescript
+import ProgramState, { OpenAIBackend, createTools } from 'enochian-js';
+import { z } from 'zod';
+
+const getWeatherParams = z.object({
+    location: z.string()
+});
+function getWeather(args: z.infer<typeof getWeatherParams>) {
+    return "It's cold and rainy";
+}
+const tools = createTools([{
+    function: getWeather,
+    name: 'getWeather',
+    description: 'Gets the current weather at some location',
+    params: getWeatherParams,
+}]);
+
+const s = new ProgramState();
+await s.setModel('http://localhost:30000');
+await s
+    .add(s.user`What's the weather like in Boston?`)
+    .add(s.assistant`${s.gen('action', { tools )}`);
+
+const action = s.get('action', { from: 'tools', tools });
+console.log(action[0]);
+```
+
+It will return a [`ToolUseResponse`](/api-reference/program-state#ToolUseResponse) typed object:
+```typescript
+type ToolUseResponse = ({
+    toolUsed: string;
+    response: unknown;
+} | {
+    toolUsed: "respondToUser";
+    response: string;
+})[]
+```
+
+The LLM can either call one or multiple tools OR respond to the user but not both. The reason you
+want to use the `createTools` util is because the `ToolUseResponse` type cannot infer the literal
+value of `toolUsed` and the `response` type without it. With the `createTools` util, hovering over
+`action` in your IDE should show something like:
+
+```typescript
+const action: ({
+    toolUsed: "respondToUser";
+    response: string;
+} | {
+    toolUsed: "getWeather";
+    respond: string;
+})[]
+```
+
+The LLM can either directly respond to the user or call the `getWeather` function and
+enochian is able to infer that.
+
+If you wanted to build a weather-getting agent, you could do a very simple "game loop"
+like this:
+
+
+```typescript
+while (true) {
+    await s.add(
+        s.assistant`${gen('action', {
+            tools,
+        })}`,
+    );
+    const action = s.get('action', { from: 'tools', tools });
+    if (!action) {
+        console.error(`No tool was used: ${action}`);
+        return;
+    }
+    const respondToUserAction = action.find(a => a.toolUsed === 'respondToUser');
+    if (respondToUserAction) {
+        console.log(respondToUserAction.response);
+        return;
+    } else {
+        for (const toolUsed of action) {
+            s.add(
+                s.user`${toolUsed.toolUsed} Result: ${JSON.stringify(toolUsed.response)}`,
+            );
+        }
+    }
+}
+```
+
+That will repeatedly call the LLM, giving it the responses to its tool uses, until
+it decides it can finally directly respond to the user.

@@ -100,7 +100,7 @@ async function multiTurnQuestion(
     await s.setModel('http://localhost:30000');
 
     // ADD THIS
-    s.setDebugInfo({
+    s.beginDebugRegion({
         debugName: 'multiTurnQuestion',
     });
 

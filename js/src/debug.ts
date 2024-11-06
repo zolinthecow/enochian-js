@@ -2,9 +2,12 @@ import type {
     PromptPostBody,
     PromptPostReturnType,
 } from '@zolinthecow/enochian-studio';
-import type { Debug } from './api.js';
+import type { DebugInfo } from './api.js';
 
-export async function postStudioPrompt(body: PromptPostBody, debugInfo: Debug) {
+export async function postStudioPrompt(
+    body: PromptPostBody,
+    debugInfo: DebugInfo,
+) {
     const { baseUrl, port } = debugInfo;
     const url = `${baseUrl}:${port}/api/prompt`;
 

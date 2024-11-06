@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import ProgramState from '../src/programState.js';
 
 export async function run() {
@@ -12,7 +13,9 @@ export async function run() {
         await s
             .add(s.system`You are a helpful assistant.`)
             .add(s.user`${question1}`)
-            .add(s.assistant`${s.gen('answer1')}`);
+            .add(
+                s.assistant`${s.gen('answer1', { sampling_params: { zod_schema: z.string() } })}`,
+            );
         await s
             .add(s.user`${question2}`)
             .add(s.assistant`No problem! ${s.gen('answer2')}`);

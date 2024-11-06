@@ -26,6 +26,10 @@
         "declarationMap": true,
 
         /* Not running in DOM */
-        "lib": ["es2022"]
+        "lib": ["es2022"],
+
+        /* Decorators */
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true
     }
 }

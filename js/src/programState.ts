@@ -2,11 +2,12 @@ import assert from 'node:assert';
 import { ulid } from 'ulid';
 import type { z } from 'zod';
 import type {
-    Debug,
+    DebugInfo,
     GenerateReqNonStreamingInput,
     GenerateReqStreamingInput,
     GenerateRespSingle,
     MetaInfo,
+    ToolUseParams,
 } from './api.js';
 import type { SetModelParams } from './backends/backend.interface.js';
 import type Backend from './backends/backend.interface.js';
@@ -23,13 +24,13 @@ export default class ProgramState {
     private _messages: Array<Message>;
     private _answers: { [key: string]: GenerateRespSingle };
     private _backend: Backend;
-    private _debug: Debug | null;
+    private _debug: DebugInfo | null;
 
     constructor(
         backend: Backend = new SGLBackend(),
         messages: Array<Message> = [],
         answers: { [key: string]: GenerateRespSingle } = {},
-        debug: Debug | null = null,
+        debug: DebugInfo | null = null,
     ) {
         this._messages = [...messages];
         this._answers = { ...answers };
@@ -339,7 +340,7 @@ export default class ProgramState {
             const self = this;
             return async function* (messages: Message[]) {
                 // We expect the function to yield individual chunks, then return the final message
-                const generator = self._backend.gen(messages, {
+                const generator = await self._backend.gen(messages, {
                     ...genInput,
                     debug: self._debug,
                 });
@@ -376,17 +377,35 @@ export default class ProgramState {
     }
 
     get(key: string): string | undefined;
-    get<Z extends z.ZodType>(key: string, schema: Z): z.infer<Z> | undefined;
     get<Z extends z.ZodType>(
         key: string,
-        schema?: Z,
-    ): string | z.infer<Z> | undefined {
+        options: { from: 'zod'; schema: Z },
+    ): z.infer<Z> | undefined;
+    get<T extends ToolUseParams>(
+        key: string,
+        options: { from: 'tools'; tools: T },
+    ): (ToolResponse<T> | { toolUsed: 'respondToUser'; response: string })[];
+    get<Z extends z.ZodType, T extends ToolUseParams>(
+        key: string,
+        options?: { from: 'zod'; schema: Z } | { from: 'tools'; tools: T },
+    ):
+        | string
+        | z.infer<Z>
+        | (ToolResponse<T> | { toolUsed: 'respondToUser'; response: string })[]
+        | undefined {
         const value = this._answers[key]?.text;
         if (!value) return undefined;
-        if (schema) {
-            return schema.parse(JSON.parse(value));
-        } else {
-            return value;
+
+        if (!options) {
+            return value as string;
+        }
+        if (options.from === 'zod') {
+            return options.schema.parse(JSON.parse(value));
+        }
+        if (options.from === 'tools') {
+            return JSON.parse(value) as
+                | ToolResponse<T>
+                | { toolUsed: 'respondToUser'; response: string };
         }
     }
 
@@ -398,7 +417,7 @@ export default class ProgramState {
         return this._answers[key]?.meta_info;
     }
 
-    setDebugInfo(debugInfo: Partial<Debug> | null): ProgramState {
+    setDebugInfo(debugInfo: Partial<DebugInfo> | null): ProgramState {
         if (!debugInfo) {
             this._debug = null;
         } else {
@@ -486,3 +505,10 @@ function isAsyncMessageGenerator(
         Symbol.asyncIterator in asyncGen
     );
 }
+
+type ToolResponse<T extends ToolUseParams> = {
+    [K in keyof T]: {
+        toolUsed: T[K]['name'];
+        response: Awaited<ReturnType<T[K]['function']>>;
+    };
+}[number];
