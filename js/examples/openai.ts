@@ -1,4 +1,3 @@
-import OpenAIBackend from '../src/backends/openai.js';
 import ProgramState from '../src/programState.js';
 
 export async function run() {

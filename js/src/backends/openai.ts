@@ -4,7 +4,6 @@ import type { APIPromise } from 'openai/core.mjs';
 import { zodFunction, zodResponseFormat } from 'openai/helpers/zod.mjs';
 import { ulid } from 'ulid';
 import { z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 import type {
     DebugInfo,
     GenerateReqNonStreamingInput,
@@ -18,7 +17,7 @@ import type Backend from './backend.interface.js';
 import type { Message } from './backend.interface.js';
 
 export type OpenAISetModelParams = {
-    url?: string;
+    baseURL?: string;
     modelName?: OpenAI.ChatModel;
 };
 
@@ -49,7 +48,7 @@ export default class OpenAIBackend implements Backend {
         );
     }
 
-    setModel({ url, modelName }: OpenAISetModelParams): void {
+    setModel({ baseURL: url, modelName }: OpenAISetModelParams): void {
         if (url) this._openai.baseURL = url;
         if (modelName) this._modelName = modelName;
     }

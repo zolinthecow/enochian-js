@@ -37,9 +37,7 @@ describe('Basic functionality of the sgl ProgramState', () => {
                 s.assistant`${s.gen('answer1', { sampling_params: { temperature: 0 } })}`,
             );
 
-        s.setBackend(
-            new OpenAIBackend({ apiKey: process.env.OPENAI_KEY }),
-        ).setModel({ modelName: 'gpt-4o' });
+        s.fromOpenAI({ modelName: 'gpt-4o' });
 
         await s
             .add(s.user`Tell me a better one`)

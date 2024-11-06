@@ -59,7 +59,7 @@ export default class ProgramState {
             }
         }
         (this._backend as OpenAIBackend).setModel({
-            url: opts?.baseURL,
+            baseURL: opts?.baseURL,
             modelName: opts?.modelName,
         });
         return this;
