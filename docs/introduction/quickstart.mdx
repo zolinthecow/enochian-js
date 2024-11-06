@@ -19,14 +19,12 @@ npm i enochian-js @zolinthecow/enochian-studio
 
 </CodeGroup>
 
-Enochian supports both sglang backends and OpenAI compatible endpoints. To use it with OpenAI, intialize a `ProgramState` with the `OpenAIBackend`.
+Enochian supports both sglang backends and OpenAI compatible endpoints. To use it with OpenAI, intialize a `ProgramState` using the `OpenAIBackend`.
 
 ```typescript
 import ProgramState from 'enochian-js';
 
-const s = new ProgramState(
-    new OpenAIBackend({ apiKey: process.env.OPENAI_KEY }),
-);
+const s = new ProgramState().fromOpenAI();
 ```
 
 If you have access to a GPU and would like to use a local model, install and launch an [sglang](https://github.com/sgl-project/sglang) server:
@@ -51,9 +49,9 @@ async function multiTurnQuestion(
     question2: string,
 ): Promise<[string | undefined, string | undefined]> {
     // If SGLang
-    await s.setModel('http://localhost:30000');
+    await s.fromSGL('http://localhost:30000');
     // If OpenAI
-    // s.setModel({ modelName: 'gpt-4o-mini' });
+    // s.fromOpenAI({ modelName: 'gpt-4o-mini' });
     await s
         .add(s.system`You are a helpful assistant.`)
         .add(s.user`${question1}`)
@@ -97,7 +95,7 @@ async function multiTurnQuestion(
     question1: string,
     question2: string,
 ): Promise<[string | undefined, string | undefined]> {
-    await s.setModel('http://localhost:30000');
+    await s.fromSGL('http://localhost:30000');
 
     // ADD THIS
     s.beginDebugRegion({

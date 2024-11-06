@@ -3,13 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import ProgramState, { createTools, OpenAIBackend } from '../src/index.js';
 
-const apiKey = process.env.OPENAI_KEY;
-
 describe('Basic functionality of the OpenAI ProgramState', () => {
     it('does a multiturn question correctly', async () => {
-        const s = new ProgramState(new OpenAIBackend({ apiKey }));
+        const s = new ProgramState().fromOpenAI({ modelName: 'gpt-4o-mini' });
 
-        s.setModel({ modelName: 'gpt-4o-mini' });
         await s
             .add(s.system`You are a helpful assistant.`)
             .add(s.user`Tell me a joke`)
@@ -27,8 +24,7 @@ describe('Basic functionality of the OpenAI ProgramState', () => {
     });
 
     it('does forking correctly', async () => {
-        const s = new ProgramState(new OpenAIBackend({ apiKey }));
-        s.setModel({ modelName: 'gpt-4o-mini' });
+        const s = new ProgramState().fromOpenAI({ modelName: 'gpt-4o-mini' });
 
         s.add(s.system`You are a helpful assistant.`)
             .add(s.user`How can I stay healthy?`)
@@ -60,8 +56,7 @@ describe('Basic functionality of the OpenAI ProgramState', () => {
     });
 
     it('does streaming correctly', async () => {
-        const s = new ProgramState(new OpenAIBackend({ apiKey }));
-        s.setModel({ modelName: 'gpt-4o-mini' });
+        const s = new ProgramState().fromOpenAI({ modelName: 'gpt-4o-mini' });
 
         const gen = s
             .add(s.system`You are a helpful assistant.`)
@@ -77,8 +72,7 @@ describe('Basic functionality of the OpenAI ProgramState', () => {
     });
 
     it('does constrained decoding correctly', async () => {
-        const s = new ProgramState(new OpenAIBackend({ apiKey }));
-        s.setModel({ modelName: 'gpt-4o-mini' });
+        const s = new ProgramState().fromOpenAI({ modelName: 'gpt-4o-mini' });
 
         const Step = z.object({
             explanation: z.string(),
@@ -102,8 +96,7 @@ describe('Basic functionality of the OpenAI ProgramState', () => {
     });
 
     it('does tools correctly', async () => {
-        const s = new ProgramState(new OpenAIBackend({ apiKey }));
-        s.setModel({ modelName: 'gpt-4o-mini' });
+        const s = new ProgramState().fromOpenAI({ modelName: 'gpt-4o-mini' });
 
         const schema = z.object({
             equation: z.string(),

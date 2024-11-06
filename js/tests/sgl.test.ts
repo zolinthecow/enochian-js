@@ -9,9 +9,8 @@ const url = `http://${IP}:${port}`;
 
 describe('Basic functionality of the sgl ProgramState', () => {
     it('does a multiturn question correctly', async () => {
-        const s = new ProgramState();
+        const s = await new ProgramState().fromSGL(url);
 
-        await s.setModel(url);
         await s
             .add(s.system`You are a helpful assistant.`)
             .add(s.user`Tell me a joke`)
@@ -29,9 +28,8 @@ describe('Basic functionality of the sgl ProgramState', () => {
     });
 
     it('does backend swapping properly', async () => {
-        const s = new ProgramState();
+        const s = await new ProgramState().fromSGL(url);
 
-        await s.setModel(url);
         await s
             .add(s.system`You are a helpful assistant.`)
             .add(s.user`Tell me a joke`)
@@ -39,9 +37,7 @@ describe('Basic functionality of the sgl ProgramState', () => {
                 s.assistant`${s.gen('answer1', { sampling_params: { temperature: 0 } })}`,
             );
 
-        s.setBackend(
-            new OpenAIBackend({ apiKey: process.env.OPENAI_KEY }),
-        ).setModel({ modelName: 'gpt-4o' });
+        s.fromOpenAI({ modelName: 'gpt-4o' });
 
         await s
             .add(s.user`Tell me a better one`)
@@ -52,9 +48,8 @@ describe('Basic functionality of the sgl ProgramState', () => {
     });
 
     it('does choices correctly', async () => {
-        const s = new ProgramState();
+        const s = await new ProgramState().fromSGL(url);
 
-        await s.setModel(url);
         await s
             .add(s.system`You are an animal.`)
             .add(s.user`What are you?`)
@@ -66,8 +61,7 @@ describe('Basic functionality of the sgl ProgramState', () => {
     });
 
     it('does forking correctly', async () => {
-        const s = new ProgramState();
-        await s.setModel(url);
+        const s = await new ProgramState().fromSGL(url);
 
         s.add(s.system`You are a helpful assistant.`)
             .add(s.user`How can I stay healthy?`)
@@ -99,9 +93,8 @@ describe('Basic functionality of the sgl ProgramState', () => {
     });
 
     it('does streaming correctly', async () => {
-        const s = new ProgramState();
+        const s = await new ProgramState().fromSGL(url);
 
-        await s.setModel(url);
         const gen = s
             .add(s.system`You are a helpful assistant.`)
             .add(s.user`Tell me a joke`)
@@ -116,9 +109,7 @@ describe('Basic functionality of the sgl ProgramState', () => {
     });
 
     it('does constrained decoding correctly', async () => {
-        const s = new ProgramState();
-
-        await s.setModel(url);
+        const s = await new ProgramState().fromSGL(url);
 
         const schema = z.object({
             id: z.string().uuid(),
@@ -147,8 +138,7 @@ describe('Basic functionality of the sgl ProgramState', () => {
     });
 
     it('does tools correctly', async () => {
-        const s = new ProgramState();
-        await s.setModel(url);
+        const s = await new ProgramState().fromSGL(url);
 
         const schema = z.object({
             equation: z.string(),

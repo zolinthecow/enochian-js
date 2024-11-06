@@ -10,17 +10,14 @@ If you want to do mixture of agents or something along those lines, you can dyna
 ```typescript
 import ProgramState, { OpenAIBackend } from 'enochian-js';
 
-const s = new ProgramState();
+const s = await new ProgramState().fromSGL('http://localhost:30000');
 
-await s.setModel('http://localhost:30000');
 await s
     .add(s.system`You are a helpful assistant.`)
     .add(s.user`Tell me a joke`)
     .add(s.assistant`${s.gen('answer1')}`);
 
-s.setBackend(
-    new OpenAIBackend({ apiKey: process.env.OPENAI_KEY }),
-).setModel({ modelName: 'gpt-4o' });
+s.fromOpenAI({ modelName: 'gpt-4o' });
 
 await s
     .add(s.user`Tell me a better one`)
@@ -35,9 +32,8 @@ Force the LLM to pick between multiple choices. It's implemented by implemented 
 ```typescript
 import ProgramState from 'enochian-js';
 
-const s = new ProgramState();
+const s = await new ProgramState().fromSGL('http://localhost:30000');
 
-await s.setModel('http://localhost:30000');
 await s
     .add(s.system`You are an animal.`)
     .add(s.user`What are you?`)
@@ -55,8 +51,7 @@ Sometimes, you can reach a state in your program which is parallelizable.
 ```typescript
 import ProgramState from 'enochian-js';
 
-const s = new ProgramState();
-await s.setModel('http://localhost:30000');
+const s = await new ProgramState().fromSGL('http://localhost:30000');
 
 s.add(s.system`You are a helpful assistant.`)
     .add(s.user`How can I stay healthy?`)
@@ -95,9 +90,8 @@ Enochian of course also supports streaming, so you can use it for a chat applica
 ```typescript
 import ProgramState from 'enochian-js';
 
-const s = new ProgramState();
+const s = await new ProgramState().fromSGL('http://localhost:30000');
 
-await s.setModel('http://localhost:30000');
 const gen = s
     .add(s.system`You are a helpful assistant.`)
     .add(s.user`Tell me a joke`)
@@ -135,9 +129,8 @@ const schema = z.object({
     joinedAt: z.string().date(),
 });
 
-const s = new ProgramState();
+const s = await new ProgramState().fromSGL('http://localhost:30000');
 
-await s.setModel('http://localhost:30000');
 await s
     .add(s.user`Describe a google employee's profile in json format`)
     .add(
@@ -169,8 +162,7 @@ const tools = createTools([{
     params: getWeatherParams,
 }]);
 
-const s = new ProgramState();
-await s.setModel('http://localhost:30000');
+const s = await new ProgramState().fromSGL('http://localhost:30000');
 await s
     .add(s.user`What's the weather like in Boston?`)
     .add(s.assistant`${s.gen('action', { tools )}`);

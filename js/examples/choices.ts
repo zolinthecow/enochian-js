@@ -1,9 +1,8 @@
 import ProgramState from '../src/programState.js';
 
 export async function run() {
-    const s = new ProgramState();
+    const s = await new ProgramState().fromSGL('http://localhost:30000');
 
-    await s.setModel('http://localhost:30000');
     await s
         .add(s.system`You are an animal.`)
         .add(s.user`What are you?`)

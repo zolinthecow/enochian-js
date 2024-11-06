@@ -1,18 +1,14 @@
-import OpenAIBackend from '../src/backends/openai.js';
 import ProgramState from '../src/programState.js';
 
 export async function run() {
-    const s = new ProgramState();
+    const s = await new ProgramState().fromSGL('http://localhost:30000');
 
-    await s.setModel('http://localhost:30000');
     await s
         .add(s.system`You are a helpful assistant.`)
         .add(s.user`Tell me a joke`)
         .add(s.assistant`${s.gen('answer1')}`);
 
-    s.setBackend(
-        new OpenAIBackend({ apiKey: process.env.OPENAI_KEY }),
-    ).setModel({ modelName: 'gpt-4o' });
+    s.fromOpenAI({ modelName: 'gpt-4o' });
 
     await s
         .add(s.user`Tell me a better one`)
