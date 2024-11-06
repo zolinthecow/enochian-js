@@ -83,8 +83,9 @@ export class RefundAgent {
             }`,
         ).add(s.user`From ${userName}: ${userRequest}`);
 
-        const iterations = 0;
+        let iterations = 0;
         while (iterations < 10) {
+            iterations += 1;
             await s.add(
                 s.assistant`${s.gen('action', {
                     tools,
