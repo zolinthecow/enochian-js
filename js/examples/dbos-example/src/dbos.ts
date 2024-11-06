@@ -7,8 +7,8 @@ import {
     Workflow,
     type WorkflowContext,
 } from '@dbos-inc/dbos-sdk';
+import ProgramState, { OpenAIBackend, createTools } from 'enochian-js';
 import { z } from 'zod';
-import ProgramState, { OpenAIBackend, createTools } from '../src/index.js';
 
 const ProcessRefundArgsSchema = z.object({
     userName: z.string(),
@@ -17,7 +17,7 @@ const ProcessRefundArgsSchema = z.object({
 });
 
 // biome-ignore lint/complexity/noStaticOnlyClass: DBOS requires this
-class RefundAgent {
+export class RefundAgent {
     @Step()
     static async processRefund(
         ctx: StepContext,
@@ -56,7 +56,7 @@ class RefundAgent {
         userRequest: string,
     ) {
         const s = new ProgramState(
-            new OpenAIBackend({ apiKey: process.env.OPENAI_API_KEY }),
+            new OpenAIBackend({ apiKey: process.env.OPENAI_KEY }),
         );
         s.setModel('gpt-4o-mini');
 

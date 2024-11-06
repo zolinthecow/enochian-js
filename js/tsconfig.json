@@ -31,5 +31,6 @@
         /* Decorators */
         "experimentalDecorators": true,
         "emitDecoratorMetadata": true
-    }
+    },
+    "exclude": ["examples/dbos-example/**"]
 }

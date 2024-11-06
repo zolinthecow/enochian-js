@@ -2,3 +2,4 @@ packages:
   - "js"
   - "studio"
   - "docs"
+  - "js/examples/dbos-example"
