@@ -8,7 +8,7 @@ export async function run() {
         question1: string,
         question2: string,
     ): Promise<[string | undefined, string | undefined]> {
-        await s.setModel('http://localhost:30000');
+        await s.fromSGL('http://localhost:30000');
 
         // The requests sent inside the debug region will be logged and grouped under the debugName provided
         s.beginDebugRegion({ debugName: 'multiTurnQuestion' });

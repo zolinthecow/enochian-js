@@ -27,9 +27,10 @@ export default class OpenAIBackend implements Backend {
     private _modelName: OpenAI.ChatModel = 'gpt-4o-mini';
     private _openai: OpenAI;
 
+    constructor();
     constructor(openAIClient: OpenAI);
     constructor(openAIOpts: ClientOptions);
-    constructor(opts: OpenAI | ClientOptions) {
+    constructor(opts?: OpenAI | ClientOptions) {
         if (opts instanceof OpenAI) {
             this._openai = opts;
         } else {
