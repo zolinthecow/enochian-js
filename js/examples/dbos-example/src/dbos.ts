@@ -122,6 +122,6 @@ export class RefundAgent {
         const resp = await ctx
             .startWorkflow(RefundAgent)
             .RefundWorkflow(userName, userRequest);
-        return resp;
+        return 'Success';
     }
 }
