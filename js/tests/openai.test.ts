@@ -125,7 +125,7 @@ describe('Basic functionality of the OpenAI ProgramState', () => {
             )
             .add(s.user`solve 8 + 3`)
             .add(s.assistant`${s.gen('step', { tools })}`);
-        const resp = s.get('answer', { from: 'tools', tools });
+        const resp = s.get('step', { from: 'tools', tools });
         expect(
             resp.toolUsed === 'solveEquation' &&
                 resp.response === 'mock function',
