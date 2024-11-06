@@ -175,24 +175,26 @@ export default class SGLBackend implements Backend {
 
         for await (const chunk of readStream(reader)) {
             const textChunk = decoder.decode(chunk);
-            const firstCurlyBracket = textChunk.indexOf('{');
-            const lastCurlyBracket = textChunk.lastIndexOf('}');
-            if (firstCurlyBracket < 0 || lastCurlyBracket < 0) {
-                throw new Error('Unexpected stream format.');
+            const lines = textChunk
+                .split('\n')
+                .map((l) => l.trim())
+                .filter(Boolean);
+
+            for (const line of lines) {
+                const match = line.match(/^data:\s*(.+)$/);
+                if (match?.[1] && match[1] !== '[DONE]') {
+                    const generateResp = GenerateRespSingleSchema.parse(
+                        JSON.parse(match[1]),
+                    );
+                    yield {
+                        ...generateResp,
+                        text: prevMessage
+                            ? generateResp.text.slice(prevMessage.text.length)
+                            : generateResp.text,
+                    };
+                    prevMessage = generateResp;
+                }
             }
-            const textChunkBody = textChunk.slice(
-                firstCurlyBracket,
-                lastCurlyBracket + 1,
-            );
-            const generateJson = JSON.parse(textChunkBody);
-            const generateResp = GenerateRespSingleSchema.parse(generateJson);
-            yield {
-                ...generateResp,
-                text: prevMessage
-                    ? generateResp.text.slice(prevMessage.text.length)
-                    : generateResp.text,
-            };
-            prevMessage = generateResp;
         }
 
         if (!prevMessage) {
