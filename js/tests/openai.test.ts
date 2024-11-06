@@ -127,8 +127,8 @@ describe('Basic functionality of the OpenAI ProgramState', () => {
             .add(s.assistant`${s.gen('step', { tools })}`);
         const resp = s.get('step', { from: 'tools', tools });
         expect(
-            resp.toolUsed === 'solveEquation' &&
-                resp.response === 'mock function',
+            resp[0]?.toolUsed === 'solveEquation' &&
+                resp[0]?.response === 'mock function',
         ).toBe(true);
     });
 });
