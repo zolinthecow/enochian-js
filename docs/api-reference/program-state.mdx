@@ -105,35 +105,27 @@ assistant message. If `.gen` simply return a `Promise<string>`, then it would st
 with the state of the `ProgramState` at the moment it was called, and not when it should actually
 start processing.
 
-## `.setModel`
-**Parameters**:
-- `url: string` (SGLang model params) or
-- `{ url?: string, modelName?: ChatModel }` (OpenAI model params)
+## `.fromSGL`
+**Parameters**
+- `url: string`
 
 **Returns**
-- `Promise<void>` or
-- `void`
+- `Promise<ProgramState>`
 
-**Types Referenced**:
-- [`ChatModel`](https://github.com/openai/openai-node/blob/d08bf1a8fa779e6a9349d92ddf65530dd84e686d/src/resources/chat/chat.ts#L11)
+Updates the `ProgramState` backend to use an SGLang server running at the provided `url`.
 
-The model params are different per backend. SGLang's backend only serves one model per endponit,
-so there's no need to pass in a `modelName` param.
-
-OpenAI's backend doesn't necessarily need the url as it'll default to OpenAI's API endpoint,
-but it should always have a model name.
-
-## `.setBackend`
+## `.fromOpenAI`
 **Parameters**
-- `backend: Backend`
+- `opts?: {
+        client?: ClientOptions;
+        modelName?: OpenAI.ChatModel;
+        baseURL?: string;
+    }`
 
 **Returns**
 - `ProgramState`
 
-**Types Referenced**:
-- [`Backend`](/api-reference/backends)
-
-Set the backend of the `ProgramState`
+Updates the `ProgramState` backend to use OpenAI with the provided options.
 
 ## `.fork`
 **Parameters**
