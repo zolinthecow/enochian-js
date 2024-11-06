@@ -7,7 +7,6 @@ import type {
     GenerateReqStreamingInput,
     GenerateRespSingle,
     MetaInfo,
-    Tool,
     ToolUseParams,
 } from './api.js';
 import type { SetModelParams } from './backends/backend.interface.js';
