@@ -55,12 +55,15 @@ type GenerateReqInputBase = {
     return_text_in_logprobs?: boolean;
     /** Enochian studio debug info */
     debug?: Debug | null;
+    /** Tools */
+    tools?: ToolUseParams;
 };
 ```
 
 **Types Referenced**
 - [`SampingParams`](/api-reference/request-types#SamplingParams)
 - [`Debug`](https://github.com/zolinthecow/enochian-js/blob/af2c07b982b2034e1f299b4d938539a94e5cda72/js/src/api.ts#L3)
+- [`ToolUseParams`](/api-reference/program-state#ToolUseParams)
 
 ### `GenerateReqInputNonStreaming`
 

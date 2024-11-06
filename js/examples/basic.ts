@@ -19,8 +19,6 @@ export async function run() {
         await s
             .add(s.user`${question2}`)
             .add(s.assistant`No problem! ${s.gen('answer2')}`);
-        s.gen('answer3', { sampling_params: { zod_schema: z.string() } });
-        const a = s.get('answer1');
         return [s.get('answer1'), s.get('answer2')];
     }
 

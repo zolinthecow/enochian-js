@@ -148,17 +148,21 @@ or is less than 0, it forks once.
 ## `.get`
 **Parameters**
 - `key: string` or
-- `key: string, schema: ZodType`
+- `key: string, { from: "zod": schema: z.ZodType }` or
+- `key: string, { from: "tools": tools: ToolUseParams }`
 
 **Returns**
 - `string | undefined` or
-- `z.infer<ZodType> | undefined`
+- `z.infer<ZodType> | undefined` or
+- `ToolUseResponse | undefined`
 
 Gets the value that was generated for a given `answerKey` that was passed into [`.gen`](/api-reference/program-state#gen).
-If the key is found and a `schema` was not passed in, then it will return a string. If a `schema` was passed
-in, then it will parse it and return the resulting type. This should only really be used when you passed in a
-`schema` to [`.gen`](/api-reference/program-state#gen) in the [`SamplingParams`](/api-reference/request-types#SamplingParams)
-to do constrained decoding. Returns undefined if the `key` does not exist.
+If the key is found and no additional options were passed in, then it will return a string.
+If it is called with a `"zod"` option, then it will use the passed in `schema` to parse it and return the resulting type.
+This should only really be used when you passed in a `schema` to [`.gen`](/api-reference/program-state#gen)
+in the [`SamplingParams`](/api-reference/request-types#SamplingParams) to do constrained decoding.
+If it is called with a `"tools"` option, then it will return in the shape of the in [`tools` definition](/api-reference/program-state#tools).
+Returns undefined if the `key` does not exist.
 
 ## `.getPrompt`
 **Parameters**
@@ -217,3 +221,51 @@ None
 - `ProgramState`
 
 This marks the end of a debug region.
+
+## Tools
+You are able to pass in a `ToolUseParams` to [`.gen`](/api-reference/program-state#gen) to give the LLM the ability to call tools.
+
+### `ToolUseParams`
+```typescript
+export function createTools<
+    const T extends Array<{
+        function: (...args: any[]) => any;
+        name: string;
+        params?: z.ZodSchema;
+        description?: string;
+    }>,
+>(
+    tools: T,
+): { [K in keyof T]: Tool<T[K]['name'], ReturnType<T[K]['function']>> } {
+    return tools as any;
+}
+export type ToolUseParams = ReturnType<typeof createTools>;
+```
+
+This is a complicated way to represent this type:
+```typescript
+type ToolUseParams = {
+    function: Function;
+    name: string;
+    params?: z.ZodSchema;
+    description?: string;
+}[]
+```
+
+You must use `createTools` to create a `ToolUseParams` if you want [`.get`](/api-reference/program-state#get) to be able to
+infer the function names and return types of those functions.
+
+### `ToolUseResponse`
+```typescript
+type ToolUseResponse = ({
+    toolUsed: string;
+    response: unknown;
+} | {
+    toolUsed: "respondToUser";
+    response: string;
+})[]
+```
+
+This type represents the result of a function call. The LLM could either call one or more tools OR respond to the user directly.
+The reason you should use the `createTools` util is so that `ToolUseResponse` can infer the literal value for `toolUsed` as the
+name of the function that was called, and `response` as the return type of the function that was called.

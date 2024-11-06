@@ -29,7 +29,7 @@ export async function run() {
         );
     // If anyone knows how to make the type automatically inferred without passing in the schema again
     // please let me know
-    const profile = s.get('answer', schema);
+    const profile = s.get('answer', { from: 'zod', schema });
     console.log(profile);
 }
 
