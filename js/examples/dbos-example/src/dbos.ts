@@ -7,7 +7,7 @@ import {
     Workflow,
     type WorkflowContext,
 } from '@dbos-inc/dbos-sdk';
-import ProgramState, { OpenAIBackend, createTools } from 'enochian-js';
+import ProgramState, { createTools } from 'enochian-js';
 import { z } from 'zod';
 
 const ProcessRefundArgsSchema = z.object({
@@ -55,10 +55,7 @@ export class RefundAgent {
         userName: string,
         userRequest: string,
     ) {
-        const s = new ProgramState(
-            new OpenAIBackend({ apiKey: process.env.OPENAI_KEY }),
-        );
-        s.setModel('gpt-4o-mini');
+        const s = new ProgramState().fromOpenAI({ modelName: 'gpt-4o-mini' });
 
         const tools = createTools([
             {

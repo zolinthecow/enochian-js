@@ -26,11 +26,7 @@
         "declarationMap": true,
 
         /* Not running in DOM */
-        "lib": ["es2022"],
-
-        /* Decorators */
-        "experimentalDecorators": true,
-        "emitDecoratorMetadata": true
+        "lib": ["es2022"]
     },
     "exclude": ["examples/dbos-example/**"]
 }
