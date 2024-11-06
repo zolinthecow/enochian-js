@@ -182,7 +182,7 @@ export default class SGLBackend implements Backend {
 
             for (const line of lines) {
                 const match = line.match(/^data:\s*(.+)$/);
-                if (match?.[1]) {
+                if (match?.[1] && match[1] !== '[DONE]') {
                     const generateResp = GenerateRespSingleSchema.parse(
                         JSON.parse(match[1]),
                     );
