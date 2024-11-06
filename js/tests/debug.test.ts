@@ -78,8 +78,7 @@ const response = {
 
 describe('enochian-studio integration', () => {
     it('sends correct data in POST request', async () => {
-        const s = new ProgramState();
-        await s.setModel(url);
+        const s = await new ProgramState().fromSGL(url);
         s.beginDebugRegion({ debugName: 'test' });
         await s
             .add(s.system`You are a helpful assistant.`)

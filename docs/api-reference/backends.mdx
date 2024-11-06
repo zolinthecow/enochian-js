@@ -26,18 +26,14 @@ get the name of the model hosted on it.
 ### Example
 
 ```typescript
-const s = new ProgramState();
-s.setBackend(new SGLBackend());
-await s.setModel('http://localhost:30000');
+const s = await new ProgramState().fromSGL('http://localhost:30000');
 ```
-Note that `SGLBackend` is the default backend for Enochian, so unless you are swapping from
-a different backend back to `SGLBackend` you won't need to do the `setBackend` call.
 
 ## OpenAIBackend
 
 ### `setModel`
 **Parameters**
-- `{url?: string, modelName?: ChatModel}`
+- `{baseURL?: string, modelName?: ChatModel}`
 
 **Returns**
 - `Promise<void>`
@@ -50,7 +46,8 @@ Set the model and/or baseURL of the OpenAI endpoint.
 ### Example
 
 ```typescript
-const s = new ProgramState(
-    new OpenAIBackend({ apiKey: process.env.OPENAI_API_KEY }),
-);
+const s = new ProgramState().fromOpenAI({ modelName: 'gpt-4o-mini' });
 ```
+
+It works the same way as OpenAI's node SDK where if you don't pass in an
+API key, then it will use the environment variable `OPENAI_API_KEY`.

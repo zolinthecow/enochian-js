@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import type { ClientOptions, OpenAI } from 'openai';
 import { ulid } from 'ulid';
 import type { z } from 'zod';
 import type {
@@ -9,9 +10,8 @@ import type {
     MetaInfo,
     ToolUseParams,
 } from './api.js';
-import type { SetModelParams } from './backends/backend.interface.js';
 import type Backend from './backends/backend.interface.js';
-import type { OpenAISetModelParams } from './backends/openai.js';
+import OpenAIBackend from './backends/openai.js';
 import SGLBackend, { type SGLSetModelParams } from './backends/sgl.js';
 import { isNonStreamingInput } from './utils.js';
 
@@ -36,6 +36,33 @@ export default class ProgramState {
         this._answers = { ...answers };
         this._backend = backend;
         this._debug = debug;
+    }
+
+    async fromSGL(opts: SGLSetModelParams): Promise<ProgramState> {
+        if (!(this._backend instanceof SGLBackend)) {
+            this._backend = new SGLBackend();
+        }
+        await this._backend.setModel(opts);
+        return this;
+    }
+    fromOpenAI(opts?: {
+        client?: ClientOptions;
+        modelName?: OpenAI.ChatModel;
+        baseURL?: string;
+    }): ProgramState {
+        if (!(this._backend instanceof OpenAIBackend)) {
+            if (opts?.client) this._backend = new OpenAIBackend(opts.client);
+            else this._backend = new OpenAIBackend();
+        } else {
+            if (opts?.client) {
+                this._backend = new OpenAIBackend(opts.client);
+            }
+        }
+        (this._backend as OpenAIBackend).setModel({
+            baseURL: opts?.baseURL,
+            modelName: opts?.modelName,
+        });
+        return this;
     }
 
     private _createRoleFunction(role: 'user' | 'assistant' | 'system') {
@@ -256,18 +283,6 @@ export default class ProgramState {
                 '',
             );
         }
-    }
-
-    // For type safety in whether or not you have to await this
-    setModel(params: SGLSetModelParams): Promise<void>;
-    setModel(params: OpenAISetModelParams): void;
-    setModel(params: SetModelParams): void | Promise<void> {
-        return this._backend.setModel(params);
-    }
-
-    setBackend(backend: Backend): ProgramState {
-        this._backend = backend;
-        return this;
     }
 
     add(message: Message): ProgramState;
