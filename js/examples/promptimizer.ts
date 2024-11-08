@@ -46,20 +46,21 @@ function getSystemPrompt() {
     systemPrompt +=
         'Since you are a prompt engineering and enochian expert, your ' +
         'colleague has asked you to help them write a javascript ' +
-        'program that uses enochian to program an LLM workflow.';
+        'program that uses enochian to program an LLM workflow. ' +
+        'You should use tools when you can since they are very powerful.';
 
     return systemPrompt;
 }
 
 function readJsFile() {
-    return fs.readFileSync('code.js', 'utf-8');
+    return fs.readFileSync('examples/code.js', 'utf-8');
 }
 
 const WriteJsFileSchema = z.object({
     newJSCode: z.string(),
 });
 function writeJsFile(args: z.infer<typeof WriteJsFileSchema>) {
-    fs.writeFileSync('code.js', args.newJSCode);
+    fs.writeFileSync('examples/code.js', args.newJSCode);
     return 'wrote to file.';
 }
 
@@ -69,7 +70,7 @@ const RunJsFileAndCaptureOutputSchema = z.object({
 async function runJsFileAndCaptureOutput(
     args: z.infer<typeof RunJsFileAndCaptureOutputSchema>,
 ) {
-    const nodeProcess = spawn('node', ['code.js', args.args]);
+    const nodeProcess = spawn('node', ['examples/code.js', args.args]);
     let output = '';
     for await (const chunk of nodeProcess.stdout) {
         output += chunk;
@@ -141,7 +142,6 @@ const tools = createTools([
 ]);
 
 (async () => {
-    // const s = await new ProgramState().fromSGL("http://10.10.0.175:48693");
     const s = new ProgramState().fromOpenAI({ modelName: 'gpt-4o' });
 
     s.add(s.system`${getSystemPrompt()}`)

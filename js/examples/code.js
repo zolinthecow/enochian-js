@@ -1,9 +1,5 @@
 import ProgramState from 'enochian-js';
 
-function calculatorTool(z) {
-    return 5 * z;
-}
-
 (async () => {
     const z = process.argv[2];
     const s = await new ProgramState().fromSGL('http://localhost:30000');
