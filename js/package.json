@@ -34,7 +34,7 @@
     "packageManager": "pnpm@9.11.0",
     "dependencies": {
         "@zolinthecow/enochian-studio": "workspace:^*",
-        "enochian-js": "^0.0.5",
+        "enochian-js": "^0.0.6",
         "openai": "^4.67.3",
         "ulid": "^2.3.0",
         "zod": "^3.23.8",

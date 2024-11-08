@@ -36,8 +36,8 @@ importers:
         specifier: workspace:^*
         version: link:../studio
       enochian-js:
-        specifier: ^0.0.5
-        version: 0.0.5(@types/node@22.7.6)(terser@5.36.0)(vite@5.4.9(@types/node@22.7.6)(terser@5.36.0))
+        specifier: ^0.0.6
+        version: 0.0.6(@types/node@22.7.6)(ioredis@5.4.1)(terser@5.36.0)(vite@5.4.9(@types/node@22.7.6)(terser@5.36.0))(xml2js@0.6.2)
       openai:
         specifier: ^4.67.3
         version: 4.68.0(zod@3.23.8)
@@ -2796,8 +2796,8 @@ packages:
     resolution: {integrity: sha512-gmNvsYi9C8iErnZdVcJnvCpSKbWTt1E8+JZo8b+daLninywUWi5NQ5STSHZ9rFjFO7imNcvb8Pc5pe/wMR5xEw==}
     engines: {node: '>=10.2.0'}
 
-  enochian-js@0.0.5:
-    resolution: {integrity: sha512-6FV9XIJkZ0qaEIA3OWHQfQiqZ2kkVByebnL+vkT1TLCBn5z6CB44TUiyki6tQ2jUkC0yr2zhfpFfU2AD245YhQ==}
+  enochian-js@0.0.6:
+    resolution: {integrity: sha512-5Gd27NyUOqZURIYQpeUcamxelgLbYUrCUhIYCJU5ZjihhAU6dTgvacX6sn61SvtWf/SQ0dQRbP4cgk+cbXpFvA==}
 
   entities@4.5.0:
     resolution: {integrity: sha512-V0hjH4dGPh9Ao5p0MoRY6BVqtwCjhz6vI5LT8AJ55H+4g9/4vbHx1I54fS0XuclLhDHArPQCiMjDxjaL8fPxhw==}
@@ -7818,7 +7818,7 @@ snapshots:
       loupe: 3.1.2
       tinyrainbow: 1.2.0
 
-  '@zolinthecow/enochian-studio@0.0.2(@types/node@22.7.6)(terser@5.36.0)(vite@5.4.9(@types/node@22.7.6)(terser@5.36.0))':
+  '@zolinthecow/enochian-studio@0.0.2(@types/node@22.7.6)(ioredis@5.4.1)(terser@5.36.0)(vite@5.4.9(@types/node@22.7.6)(terser@5.36.0))(xml2js@0.6.2)':
     dependencies:
       '@kobalte/core': 0.13.7(solid-js@1.9.2)
       '@solidjs/meta': 0.29.4(solid-js@1.9.2)
@@ -8756,9 +8756,9 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  enochian-js@0.0.5(@types/node@22.7.6)(terser@5.36.0)(vite@5.4.9(@types/node@22.7.6)(terser@5.36.0)):
+  enochian-js@0.0.6(@types/node@22.7.6)(ioredis@5.4.1)(terser@5.36.0)(vite@5.4.9(@types/node@22.7.6)(terser@5.36.0))(xml2js@0.6.2):
     dependencies:
-      '@zolinthecow/enochian-studio': 0.0.2(@types/node@22.7.6)(terser@5.36.0)(vite@5.4.9(@types/node@22.7.6)(terser@5.36.0))
+      '@zolinthecow/enochian-studio': 0.0.2(@types/node@22.7.6)(ioredis@5.4.1)(terser@5.36.0)(vite@5.4.9(@types/node@22.7.6)(terser@5.36.0))(xml2js@0.6.2)
       openai: 4.68.0(zod@3.23.8)
       ulid: 2.3.0
       zod: 3.23.8

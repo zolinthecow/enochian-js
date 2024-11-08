@@ -14,7 +14,7 @@ const tools = createTools([
         function: calculate,
         name: 'calculate',
         params: calculateParams,
-        description: 'Calculates the value of 5z + 3 for a given z.',
+        description: 'Calculates the value of 5z + 3',
     },
 ]);
 

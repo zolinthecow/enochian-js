@@ -91,7 +91,7 @@ async function runJsFileAndCaptureOutput(
 
 async function testFile() {
     const inputs = [1, 2, 3] as const;
-    const answers = ['8', '13', '18'] as const;
+    const answers = [8, 13, 18] as const;
 
     let success = true;
     const outputs = [];
@@ -100,7 +100,7 @@ async function testFile() {
             // biome-ignore lint/style/noNonNullAssertion: whatevs
             args: inputs[i]!.toString(),
         });
-        if (res.errorOutput || res.output !== answers[i]) {
+        if (Number.parseInt(res.output) !== answers[i]) {
             success = false;
         }
         outputs.push(res);
@@ -138,13 +138,6 @@ const tools = createTools([
         description:
             'Test your code for correctness. It will return status true if the code is correct. If the code is not correct, it will return status false and also the output.',
     },
-    // {
-    //     function: (args: unknown) => {},
-    //     name: "pauseAndThink",
-    //     description:
-    //         "If you need to pause and think about your next step, you can call this function and pass in your thoughts.",
-    //     params: z.object({ thought: z.string() }),
-    // },
 ]);
 
 (async () => {
@@ -182,13 +175,9 @@ const tools = createTools([
             return;
         }
         for (const toolUsed of action) {
-            if (toolUsed.toolUsed === 'pauseAndThink') {
-                s.add(s.user`Great, what's your next step?`);
-            } else {
-                s.add(
-                    s.user`${toolUsed.toolUsed} Result: ${JSON.stringify(toolUsed.response)}`,
-                );
-            }
+            s.add(
+                s.user`${toolUsed.toolUsed} Result: ${JSON.stringify(toolUsed.response)}`,
+            );
         }
     }
 })();
