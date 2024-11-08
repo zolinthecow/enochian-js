@@ -338,7 +338,7 @@ export default class SGLBackend implements Backend {
                 t.params
                     ? z.object({
                           toolName: z.literal(t.function.name),
-                          parameters: t.params,
+                          params: t.params,
                       })
                     : z.object({ toolName: z.literal(t.function.name) }),
             ),
