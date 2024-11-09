@@ -1,8 +1,7 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import ProgramState, { createTools } from 'enochian-js/src/index.js';
 import { z } from 'zod';
-import { createTools } from '../src/api.js';
-import ProgramState from '../src/programState.js';
 
 function getSystemPrompt() {
     let systemPrompt =
@@ -11,27 +10,27 @@ function getSystemPrompt() {
         'enochian. Here are the docs for enochian.\n\n' +
         '---BEGIN ENOCHIAN DOCS---\n';
     const introductionContent = fs.readFileSync(
-        '../docs/introduction/introduction.mdx',
+        '../../../docs/introduction/introduction.mdx',
         'utf-8',
     );
     const quickstartContent = fs.readFileSync(
-        '../docs/introduction/quickstart.mdx',
+        '../../../docs/introduction/quickstart.mdx',
         'utf-8',
     );
     const examplesContent = fs.readFileSync(
-        '../docs/introduction/examples.mdx',
+        '../../../docs/introduction/examples.mdx',
         'utf-8',
     );
     const backendsContent = fs.readFileSync(
-        '../docs/api-reference/backends.mdx',
+        '../../../docs/api-reference/backends.mdx',
         'utf-8',
     );
     const programStateContent = fs.readFileSync(
-        '../docs/api-reference/program-state.mdx',
+        '../../../docs/api-reference/program-state.mdx',
         'utf-8',
     );
     const requestTypesContent = fs.readFileSync(
-        '../docs/api-reference/request-types.mdx',
+        '../../../docs/api-reference/request-types.mdx',
         'utf-8',
     );
     systemPrompt +=
@@ -53,14 +52,14 @@ function getSystemPrompt() {
 }
 
 function readJsFile() {
-    return fs.readFileSync('examples/code.js', 'utf-8');
+    return fs.readFileSync('code.js', 'utf-8');
 }
 
 const WriteJsFileSchema = z.object({
     newJSCode: z.string(),
 });
 function writeJsFile(args: z.infer<typeof WriteJsFileSchema>) {
-    fs.writeFileSync('examples/code.js', args.newJSCode);
+    fs.writeFileSync('code.js', args.newJSCode);
     return 'wrote to file.';
 }
 
@@ -70,7 +69,7 @@ const RunJsFileAndCaptureOutputSchema = z.object({
 async function runJsFileAndCaptureOutput(
     args: z.infer<typeof RunJsFileAndCaptureOutputSchema>,
 ) {
-    const nodeProcess = spawn('node', ['examples/code.js', args.args]);
+    const nodeProcess = spawn('node', ['code.js', args.args]);
     let output = '';
     for await (const chunk of nodeProcess.stdout) {
         output += chunk;
