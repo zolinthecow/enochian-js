@@ -1,5 +1,6 @@
 packages:
   - "js"
   - "js/examples/promptimizer"
+  - "js/examples/dbos-example"
   - "studio"
   - "docs"
