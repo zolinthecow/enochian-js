@@ -431,8 +431,10 @@ export default class SGLBackend implements Backend {
                     `No tool was selected: ${JSON.stringify(parsedGenJson, null, 2)}`,
                 );
             }
+            console.log('💎 GONNA USE TOOL', toolDef);
             let toolFunctionResp: unknown;
             if (toolDef.params) {
+                console.log('WITH PARAMS', toolDef.params);
                 toolFunctionResp = await toolToUse.function(toolDef.params);
             } else {
                 toolFunctionResp = await toolToUse.function();
