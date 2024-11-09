@@ -28,5 +28,5 @@
         /* Not running in DOM */
         "lib": ["es2022"]
     },
-    "exclude": ["examples/dbos-example/**"]
+    "exclude": ["examples/promptimizer/**", "examples/dbos-example/**"]
 }
