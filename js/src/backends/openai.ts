@@ -220,7 +220,6 @@ export default class OpenAIBackend implements Backend {
             } else {
                 response = await selectedTool.function();
             }
-            console.log('CALLED TOOL', toolCall, response);
             functionResponses.push({
                 toolUsed: selectedTool.name,
                 response,

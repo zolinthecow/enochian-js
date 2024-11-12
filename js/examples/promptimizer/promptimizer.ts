@@ -102,6 +102,7 @@ async function testFile() {
         });
         if (Number.parseInt(res.output) !== answers[i]) {
             success = false;
+            res.errorMessage = `Expected ${answers[i]}, got ${res.output}.`;
         }
         outputs.push(res);
     }
@@ -143,16 +144,23 @@ const tools = createTools([
 (async () => {
     const s = new ProgramState().fromOpenAI({ modelName: 'gpt-4o' });
 
+    s.beginDebugRegion({ debugName: 'promptimizer' });
+
     s.add(s.system`${getSystemPrompt()}`)
+        .add(s.user`Please help me write a javascript file using enochian `)
+        .add(s.user`that creates an LLM workflow that can calculate the `)
+        .add(s.user`value of $5z+3$ for an arbitrary z. Here is the current `)
+        .add(s.user`state of my JS file. I haven't gotten very far `)
+        .add(s.user`unfortuanetly:\n---BEGIN JS FILE---\n${readJsFile()}`)
+        .add(s.user`\n---END JS FILE---\n Please help me write this file. `)
+        .add(s.user`Take as much time and as many tries as you need until `)
+        .add(s.user`the file is correct. I encourage you to use the `)
+        .add(s.user`functions available to you to test it out. The file `)
+        .add(s.user`is correct if and only if it passes the "runTests" `)
         .add(
-            s.user`Please help me write a javascript file using enochian that creates an LLM workflow that can calculate the value of $5z+3$ for an arbitrary z.`,
+            s.user`tool. YOU MUST verify your steps every time with this "runTests"`,
         )
-        .add(
-            s.user`Here is the current state of my JS file. I haven't gotten very far unfortuanetly:\n---BEGIN JS FILE---\n${readJsFile()}\n---END JS FILE---\n`,
-        )
-        .add(
-            s.user`Please help me write this file. Take as much time and as many tries as you need until the file is correct. I encourage you to use the functions available to you to test it out. The file is correct if and only if it passes the "runTests" tool. Let me know when you're done by saying "ACK"`,
-        );
+        .add(s.user`tool. Let me know when you're done by saying "ACK"`);
     let i = 0;
     while (true) {
         await s.add(

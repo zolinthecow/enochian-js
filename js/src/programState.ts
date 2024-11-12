@@ -39,7 +39,6 @@ export default class ProgramState {
     }
 
     async fromSGL(opts: SGLSetModelParams): Promise<ProgramState> {
-        console.log('HI', opts);
         if (!(this._backend instanceof SGLBackend)) {
             this._backend = new SGLBackend();
         }
