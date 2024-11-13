@@ -1,0 +1,13 @@
+{
+    "extends": "enochian-js/tsconfig.json",
+    "compilerOptions": {
+        "outDir": "./dist",
+        "rootDir": "src/",
+
+        /* Decorators */
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true
+    },
+    "include": ["src/**/*"],
+    "exclude": []
+}
