@@ -1,21 +1,26 @@
 import type { APIEvent } from '@solidjs/start/server';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import db, { parsePrompt, type Prompt, type PromptType } from '~/lib/db';
+import db, {
+    PromptSchema,
+    PromptTypeSchema,
+    type Prompt,
+    type PromptType,
+} from '~/lib/db';
 import { POST } from '~/routes/api/prompt'; // Adjust import path as needed
 import { applyMigrations } from '../migrate';
 
 describe('POST /api/prompt', () => {
     // Clean up database before each test
-    beforeEach(() => {
+    beforeEach(async () => {
         applyMigrations();
-        db.prepare('DELETE FROM Prompt').run();
-        db.prepare('DELETE FROM PromptType').run();
+        await db.execute('DELETE FROM Prompt');
+        await db.execute('DELETE FROM PromptType');
     });
 
     // Clean up database after each test
-    afterEach(() => {
-        db.prepare('DELETE FROM Prompt').run();
-        db.prepare('DELETE FROM PromptType').run();
+    afterEach(async () => {
+        await db.execute('DELETE FROM Prompt');
+        await db.execute('DELETE FROM PromptType');
     });
 
     it('should handle initial prompt creation and subsequent update', async () => {
@@ -70,23 +75,30 @@ describe('POST /api/prompt', () => {
         });
 
         // Verify database state after initial request
-        const promptTypeAfterInit = db
-            .prepare('SELECT * FROM PromptType WHERE type = ?')
-            .get('test') as PromptType;
+        const promptTypeAfterInit = PromptTypeSchema.parse(
+            (
+                await db.execute({
+                    sql: 'SELECT * FROM PromptType WHERE type = ?',
+                    args: ['test'],
+                })
+            ).rows[0],
+        );
         expect(promptTypeAfterInit).toBeTruthy();
         expect(promptTypeAfterInit.type).toBe('test');
 
-        const promptAfterInit = db
-            .prepare('SELECT * FROM Prompt WHERE id = ?')
-            .get('01JARSVVEJ7MTZXFDFKGDB9P5S') as Prompt;
+        const promptAfterInit = PromptSchema.parse(
+            (
+                await db.execute({
+                    sql: 'SELECT * FROM Prompt WHERE id = ?',
+                    args: ['01JARSVVEJ7MTZXFDFKGDB9P5S'],
+                })
+            ).rows[0],
+        );
         expect(promptAfterInit).toBeTruthy();
 
-        const parsedPromptAfterInit = parsePrompt(promptAfterInit);
-        expect(parsedPromptAfterInit.requests).toHaveLength(1);
-        expect(parsedPromptAfterInit.requests[0]?.requestPrompt).toBeDefined();
-        expect(
-            parsedPromptAfterInit.requests[0]?.responseContent,
-        ).toBeUndefined();
+        expect(promptAfterInit.requests).toHaveLength(1);
+        expect(promptAfterInit.requests[0]?.requestPrompt).toBeDefined();
+        expect(promptAfterInit.requests[0]?.responseContent).toBeUndefined();
 
         // Mock APIEvent for second request (update)
         const updateRequest = {
@@ -124,23 +136,23 @@ describe('POST /api/prompt', () => {
         });
 
         // Verify final database state
-        const promptAfterUpdate = db
-            .prepare('SELECT * FROM Prompt WHERE id = ?')
-            .get('01JARSVVEJ7MTZXFDFKGDB9P5S') as Prompt;
+        const promptAfterUpdate = PromptSchema.parse(
+            (
+                await db.execute({
+                    sql: 'SELECT * FROM Prompt WHERE id = ?',
+                    args: ['01JARSVVEJ7MTZXFDFKGDB9P5S'],
+                })
+            ).rows[0],
+        );
         expect(promptAfterUpdate).toBeTruthy();
 
-        const parsedPromptAfterUpdate = parsePrompt(promptAfterUpdate);
-        expect(parsedPromptAfterUpdate.requests).toHaveLength(1);
-        expect(
-            parsedPromptAfterUpdate.requests[0]?.requestPrompt,
-        ).toBeDefined();
-        expect(
-            parsedPromptAfterUpdate.requests[0]?.responseContent,
-        ).toBeDefined();
-        expect(parsedPromptAfterUpdate.requests[0]?.responseContent).toContain(
+        expect(promptAfterUpdate.requests).toHaveLength(1);
+        expect(promptAfterUpdate.requests[0]?.requestPrompt).toBeDefined();
+        expect(promptAfterUpdate.requests[0]?.responseContent).toBeDefined();
+        expect(promptAfterUpdate.requests[0]?.responseContent).toContain(
             'two-tired',
         );
-        expect(parsedPromptAfterUpdate.requests[0]?.responseTimestamp).toBe(
+        expect(promptAfterUpdate.requests[0]?.responseTimestamp).toBe(
             '2024-10-22T00:26:12.729Z',
         );
     });
