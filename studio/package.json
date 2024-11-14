@@ -1,5 +1,5 @@
 {
-    "name": "@zolinthecow/enochian-studio",
+    "name": "enochian-studio",
     "version": "0.0.3",
     "description": "A web client for viewing enochian requests",
     "type": "module",
