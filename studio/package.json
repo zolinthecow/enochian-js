@@ -1,6 +1,6 @@
 {
     "name": "@zolinthecow/enochian-studio",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "A web client for viewing enochian requests",
     "type": "module",
     "bin": {
@@ -26,12 +26,12 @@
     },
     "dependencies": {
         "@kobalte/core": "^0.13.7",
+        "@libsql/client": "^0.14.0",
         "@solidjs/meta": "^0.29.4",
         "@solidjs/router": "^0.14.7",
         "@solidjs/start": "^1.0.8",
         "@trpc/client": "11.0.0-rc.586",
         "@trpc/server": "11.0.0-rc.586",
-        "better-sqlite3": "^11.4.0",
         "class-variance-authority": "^0.7.0",
         "clsx": "^2.1.1",
         "solid-js": "^1.9.1",

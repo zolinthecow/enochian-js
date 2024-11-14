@@ -3,9 +3,10 @@ import { ulid } from 'ulid';
 import { z } from 'zod';
 import db, {
     PromptRequestSchema,
-    type Prompt,
-    type PromptType,
     type PromptRequest,
+    PromptTypeSchema,
+    PromptSchema,
+    type PromptType,
 } from '~/lib/db';
 import { ee } from '~/server/api/utils';
 
@@ -35,33 +36,44 @@ export async function POST(event: APIEvent) {
     const body = PostBodySchema.parse(rawBody);
     let didCreateNewPromptType = false;
     let didCreateOrEditPrompt = false;
-
+    const tx = await db.transaction('write');
     try {
-        db.prepare('BEGIN TRANSACTION').run();
-
         // Ensure PromptType exists
-        const promptType = db
-            .prepare('SELECT type FROM PromptType WHERE type = ?')
-            .get(body.type) as PromptType | null;
-        if (!promptType) {
-            db.prepare('INSERT INTO PromptType (type) VALUES (?)').run(
-                body.type,
-            );
+        const promptTypeRow = (
+            await tx.execute({
+                sql: 'SELECT type FROM PromptType WHERE type = ?',
+                args: [body.type],
+            })
+        ).rows[0];
+        if (!promptTypeRow) {
+            await tx.execute({
+                sql: 'INSERT INTO PromptType (type) VALUES (?)',
+                args: [body.type],
+            });
             didCreateNewPromptType = true;
         }
 
         // Get or create Prompt
         const promptID = body.id || ulid();
-        const existingPrompt = db
-            .prepare('SELECT id, requests FROM Prompt WHERE id = ?')
-            .get(promptID) as Prompt | null;
+        const existingPromptRow = (
+            await tx.execute({
+                sql: 'SELECT id, requests FROM Prompt WHERE id = ?',
+                args: [promptID],
+            })
+        ).rows[0];
+        const existingPrompt = existingPromptRow?.requests
+            ? {
+                  id: existingPromptRow.id,
+                  requests: z
+                      .array(PromptRequestSchema)
+                      .parse(JSON.parse(existingPromptRow.requests as string)),
+              }
+            : undefined;
 
         let updatedRequests: PromptRequest[];
         if (existingPrompt) {
             // Update existing prompt
-            updatedRequests = JSON.parse(
-                existingPrompt.requests,
-            ) as PromptRequest[];
+            updatedRequests = existingPrompt.requests;
 
             for (const newRequest of body.requests) {
                 const existingIndex = updatedRequests.findIndex(
@@ -89,16 +101,19 @@ export async function POST(event: APIEvent) {
         }
 
         // Upsert the prompt
-        db.prepare(`
+        await tx.execute({
+            sql: `
             INSERT INTO Prompt (id, type, requests, updatedAt)
             VALUES (?, ?, ?, datetime('now'))
             ON CONFLICT(id) DO UPDATE SET
             type = excluded.type,
             requests = excluded.requests,
             updatedAt = excluded.updatedAt
-        `).run(promptID, body.type, JSON.stringify(updatedRequests));
+        `,
+            args: [promptID, body.type, JSON.stringify(updatedRequests)],
+        });
 
-        db.prepare('COMMIT').run();
+        await tx.commit();
 
         if (didCreateNewPromptType) {
             ee.emit('newPromptType');
@@ -111,13 +126,12 @@ export async function POST(event: APIEvent) {
             id: promptID,
         };
     } catch (error) {
-        db.prepare('ROLLBACK').run();
+        await tx.rollback();
         console.error('Error processing request:', error);
         throw error;
     }
 }
 
 function isPromptRequest(request: PostBodyRequest): request is PromptRequest {
-    console.log(request);
     return 'requestPrompt' in request;
 }

@@ -1,25 +1,29 @@
-import Database from 'better-sqlite3';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createClient } from '@libsql/client';
 import { z } from 'zod';
 
-const db: Database.Database = new Database('enochian-studio.sqlite');
+let packageRoot: string;
+if (typeof __dirname !== 'undefined') {
+    packageRoot = path.resolve(__dirname, '..', '..');
+} else {
+    const currentFilePath = fileURLToPath(import.meta.url);
+    packageRoot = path.resolve(path.dirname(currentFilePath), '..', '..');
+}
+const dbPath = path.resolve(packageRoot, 'enochian-studio.db');
+const db = createClient({
+    url: `file:${dbPath}`,
+});
 
 export default db;
 
 // Type for the PromptType table
-export type PromptType = {
-    type: string;
-    createdAt: string;
-    updatedAt: string;
-};
-
-// Type for the Prompt table
-export type Prompt = {
-    id: string;
-    type: string;
-    requests: string; // JSON string of array of PromptRequest
-    createdAt: string;
-    updatedAt: string;
-};
+export const PromptTypeSchema = z.object({
+    type: z.string(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+});
+export type PromptType = z.infer<typeof PromptTypeSchema>;
 
 export const PromptRequestSchema = z.object({
     id: z.string(),
@@ -30,22 +34,25 @@ export const PromptRequestSchema = z.object({
     responseTimestamp: z.string().optional(),
     responseMetadata: z.unknown().optional(), // JSON object
 });
+export const PromptSchema = z.object({
+    id: z.string(),
+    type: z.string(),
+    requests: z.string().transform((str) => {
+        const parsed = JSON.parse(str);
+        console.log('PARSEDD', parsed);
+        return z.array(PromptRequestSchema).parse(parsed);
+    }),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+});
+export type Prompt = z.infer<typeof PromptSchema>;
+
 export type PromptRequest = z.infer<typeof PromptRequestSchema>;
 
 // Helper type for parsed Prompt data
 export type ParsedPrompt = Omit<Prompt, 'requests'> & {
     requests: PromptRequest[];
 };
-
-// Helper functions to parse JSON fields
-export function parsePrompt(prompt: Prompt): ParsedPrompt {
-    return {
-        ...prompt,
-        requests: PromptRequestSchema.array().parse(
-            JSON.parse(prompt.requests),
-        ),
-    };
-}
 
 export function stringifyPrompt(prompt: ParsedPrompt): Prompt {
     return {

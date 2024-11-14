@@ -1,5 +1,6 @@
+import { z } from 'zod';
 import type { PromptType } from '~/lib/db';
-import db from '~/lib/db';
+import db, { PromptTypeSchema } from '~/lib/db';
 import { ee, publicProcedure } from '../../utils';
 
 export const listenPromptTypes = publicProcedure.subscription(
@@ -8,10 +9,19 @@ export const listenPromptTypes = publicProcedure.subscription(
             signal: opts.signal,
         });
 
-        const getPromptTypes = (): PromptType[] => {
-            const promptTypes = db
-                .prepare('SELECT * FROM PromptType')
-                .all() as PromptType[];
+        const getPromptTypes = async (): Promise<PromptType[]> => {
+            let promptTypes: PromptType[] = [];
+            try {
+                const promptTypeRows = await db.execute(
+                    'SELECT * FROM PromptType',
+                );
+                promptTypes = z
+                    .array(PromptTypeSchema)
+                    .parse(promptTypeRows.rows);
+            } catch (e) {
+                console.error('FAILED TO GET PROMPT TYPES', e);
+            }
+
             return promptTypes;
         };
         yield getPromptTypes();

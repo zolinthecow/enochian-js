@@ -349,7 +349,7 @@ export default class OpenAIBackend implements Backend {
                     id: debug?.debugPromptID ?? undefined,
                     requests: [
                         {
-                            id: resp.meta_info.id,
+                            id: reqID,
                             responseContent: resp.text,
                             responseMetadata: resp.meta_info,
                             responseTimestamp: new Date().toISOString(),
@@ -449,24 +449,6 @@ function genInputToChatCompletionInput(
                     parameters: tool.params ?? z.object({}),
                 }),
             );
-            // bodyParams.tools.push({
-            //     type: "function",
-            //     function: {
-            //         name: tool.name,
-            //         description: tool.description,
-            //         parameters: tool.params
-            //             ? {
-            //                   ...zodToJsonSchema(tool.params),
-            //                   additionalProperties: false,
-            //               }
-            //             : {
-            //                   type: "object",
-            //                   properties: {},
-            //                   additionalProperties: false,
-            //               },
-            //         strict: true,
-            //     },
-            // });
         }
     }
 
