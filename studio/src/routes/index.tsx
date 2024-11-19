@@ -7,6 +7,7 @@ import {
     createSignal,
     onCleanup,
 } from 'solid-js';
+import { isServer } from 'solid-js/web';
 import { Button } from '~/components/ui/button';
 import {
     Tabs,
@@ -76,7 +77,6 @@ type PromptDetailsProps = {
     prompt: ParsedPrompt;
 };
 function PromptDetails(props: PromptDetailsProps) {
-    console.log(props.prompt);
     return (
         <div class="p-4 border rounded text-wrap max-w-full">
             <h3 class="text-lg font-semibold mb-2">Prompt Details</h3>
@@ -139,6 +139,9 @@ export default function Home() {
     const [allPromptTypes, setAllPromptTypes] = createSignal<string[]>([]);
     const [allPrompts, setAllPrompts] = createSignal<ParsedPrompt[]>([]);
     createEffect(() => {
+        if (isServer) {
+            return;
+        }
         const promptsSubscription = trpc.prompt.listenPrompts.subscribe(
             undefined,
             {

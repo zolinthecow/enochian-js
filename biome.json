@@ -4,7 +4,12 @@
         "enabled": true
     },
     "files": {
-        "ignore": ["js/dist", "studio/.output", "studio/.vinxi"]
+        "ignore": [
+            "js/dist",
+            "studio/.output",
+            "studio/.vinxi",
+            "js/examples/dbos-example/start_postgres_docker.js"
+        ]
     },
     "formatter": {
         "indentStyle": "space",

@@ -1,0 +1,5 @@
+{
+    "extends": "enochian-js/tsconfig.json",
+    "include": ["**/*.ts", "**.*.js"],
+    "exclude": []
+}

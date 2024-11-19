@@ -8,7 +8,7 @@ export async function run() {
         question1: string,
         question2: string,
     ): Promise<[string | undefined, string | undefined]> {
-        await s.fromSGL('http://localhost:30000');
+        s.fromOpenAI({ modelName: 'gpt-4o' });
 
         // The requests sent inside the debug region will be logged and grouped under the debugName provided
         s.beginDebugRegion({ debugName: 'multiTurnQuestion' });

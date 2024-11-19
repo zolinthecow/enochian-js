@@ -1,14 +1,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import Database from 'better-sqlite3';
+import { fileURLToPath } from 'node:url';
+import { createClient } from '@libsql/client';
 
-const db = new Database('enochian-studio.sqlite');
+// Get package root directory
+const currentFilePath = fileURLToPath(import.meta.url);
+const packageRoot = path.resolve(path.dirname(currentFilePath));
+const dbPath = path.resolve(packageRoot, 'enochian-studio.db');
 
-const packageRoot = path.resolve(import.meta.dirname);
+const client = createClient({
+    url: `file:${dbPath}`,
+});
 
-export function applyMigrations() {
+export async function applyMigrations() {
     // Ensure migrations table exists
-    db.exec(`
+    await client.execute(`
     CREATE TABLE IF NOT EXISTS migrations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
@@ -21,10 +27,10 @@ export function applyMigrations() {
     const migrationFiles = fs.readdirSync(migrationsDir).sort();
 
     // Get list of applied migrations
-    const appliedMigrations = db
-        .prepare('SELECT name FROM migrations')
-        .all()
-        .map((row) => row.name);
+    const result = await client.execute('SELECT name FROM migrations');
+    const appliedMigrations = result.rows.map((row) => row.name);
+
+    const tx = await client.transaction('write');
 
     // Apply new migrations
     for (const file of migrationFiles) {
@@ -35,16 +41,15 @@ export function applyMigrations() {
                 'utf8',
             );
 
-            db.transaction(() => {
-                db.exec(migration);
-                db.prepare('INSERT INTO migrations (name) VALUES (?)').run(
-                    file,
-                );
-            })();
+            await tx.executeMultiple(migration);
+            await tx.execute('INSERT INTO migrations (name) VALUES (?)', [
+                file,
+            ]);
 
             console.log(`Migration applied: ${file}`);
         }
     }
+    await tx.commit();
 
     console.log('All migrations applied successfully');
 }

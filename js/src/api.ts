@@ -187,8 +187,8 @@ export const MetaInfoSchemaWithoutLogprobs = z.object({
             }),
             z.object({
                 type: z.literal('stop'),
-                // Token ID
-                matched: z.number(),
+                // Token ID or stop string
+                matched: z.number().or(z.string()),
             }),
         ])
         .nullish(),
