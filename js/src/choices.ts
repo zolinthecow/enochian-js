@@ -1,4 +1,4 @@
-import type { Logprob, MetaInfoWithLogprobs } from './api.js';
+import type { Logprob } from './api.js';
 
 export type ChoicesDecision = {
     decision: string;

@@ -8,7 +8,6 @@ import type {
     GenerateReqStreamingInput,
     GenerateRespSingle,
     Message,
-    MessageMetadata,
     MetaInfo,
     ToolUseParams,
 } from './api.js';
