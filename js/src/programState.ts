@@ -361,9 +361,15 @@ export default class ProgramState {
             if (!genInput?.transform) return messages;
             const messagesToTransform: Message[] = [];
             const prefixCachedMessages: Message[] = [];
+            const lastMessage = messages[messages.length - 1];
 
             let isInPrefix = true;
-            for (const m of messages) {
+            for (let i = 0; i < messages.length; i++) {
+                const m = messages[i];
+                if (!m) {
+                    console.warn('Undefined message found in transform');
+                    continue;
+                }
                 if (!m.probablyPrefixCached) {
                     isInPrefix = false;
                 } else if (!isInPrefix) {
