@@ -461,28 +461,99 @@ export default class ProgramState {
         key: string,
         options: { from: 'tools'; tools: T },
     ): (ToolResponse<T> | { toolUsed: 'respondToUser'; response: string })[];
+    get(key: string, options: { from: 'messages' }): Message;
     get<Z extends z.ZodType, T extends ToolUseParams>(
         key: string,
-        options?: { from: 'zod'; schema: Z } | { from: 'tools'; tools: T },
+        options?:
+            | { from: 'zod'; schema: Z }
+            | { from: 'tools'; tools: T }
+            | { from: 'messages' },
     ):
         | string
         | z.infer<Z>
+        | Message
         | (ToolResponse<T> | { toolUsed: 'respondToUser'; response: string })[]
         | undefined {
-        const value = this._answers[key]?.text;
-        if (!value) return undefined;
+        if (options?.from === 'messages') {
+            return this._messages.find((m) => m.id === key);
+        } else {
+            const value = this._answers[key]?.text;
+            if (!value) {
+                // If you can't find it in the answers try in the message histroy
+                const message = this._messages.find((m) => m.id === key);
+                if (message) {
+                    return message.content;
+                } else {
+                    return undefined;
+                }
+            }
 
-        if (!options) {
-            return value as string;
+            if (!options) {
+                return value as string;
+            }
+            if (options.from === 'zod') {
+                return options.schema.parse(JSON.parse(value));
+            }
+            if (options.from === 'tools') {
+                return JSON.parse(value) as
+                    | ToolResponse<T>
+                    | { toolUsed: 'respondToUser'; response: string };
+            }
         }
-        if (options.from === 'zod') {
-            return options.schema.parse(JSON.parse(value));
+    }
+
+    set(
+        id: string,
+        newMessage: Message,
+        metadata?: { [key: string]: unknown },
+        opts?: { deleteMessagesAfter?: boolean },
+    ): ProgramState;
+    set(
+        id: string,
+        newMessage: Promise<Message>,
+        metadata?: { [key: string]: unknown },
+        opts?: { deleteMessagesAfter?: boolean },
+    ): Promise<ProgramState>;
+    set(
+        id: string,
+        newMessage: AsyncGenerator<Message, Message, undefined>,
+        metadata?: { [key: string]: unknown },
+        opts?: { deleteMessagesAfter?: boolean },
+    ): AsyncGenerator<Message>;
+    set(
+        id: string,
+        newMessage:
+            | Message
+            | Promise<Message>
+            | AsyncGenerator<Message, Message, undefined>,
+        metadata?: { [key: string]: unknown },
+        opts?: { deleteMessagesAfter?: boolean },
+    ): ProgramState | Promise<ProgramState> | AsyncGenerator<Message> {
+        const messageIdx = this._messages.findIndex((m) => m.id === id);
+        if (!messageIdx) {
+            console.warn(`No message with id ${id}`);
+            return this;
         }
-        if (options.from === 'tools') {
-            return JSON.parse(value) as
-                | ToolResponse<T>
-                | { toolUsed: 'respondToUser'; response: string };
+        if (opts?.deleteMessagesAfter) {
+            this._messages.splice(
+                messageIdx,
+                this._messages.length - messageIdx,
+            );
+        } else {
+            this._messages.splice(messageIdx, 1);
         }
+        // @ts-expect-error TS can't infer the overloaded type of `add`
+        return this.add(newMessage, metadata);
+    }
+
+    delete(id: string): ProgramState {
+        const messageIdx = this._messages.findIndex((m) => m.id === id);
+        if (!messageIdx) {
+            console.warn(`No message with id ${id}`);
+            return this;
+        }
+        this._messages.splice(messageIdx, 1);
+        return this;
     }
 
     getPrompt(): string {
