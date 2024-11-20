@@ -204,26 +204,38 @@ export default class OpenAIBackend implements Backend {
         tools: ToolUseParams,
         toolCalls: OpenAI.Chat.Completions.ChatCompletionMessageToolCall[],
     ) {
-        const functionResponses: { toolUsed: string; response: unknown }[] = [];
+        const functionResponses: {
+            toolUsed: string;
+            response: unknown;
+            error: string | undefined;
+        }[] = [];
         for (const toolCall of toolCalls) {
             const selectedTool = tools.find(
                 (t) => t.name === toolCall.function.name,
             );
             assert(selectedTool, 'Selected nonexistant function');
             let response: unknown;
-            if (selectedTool.params && toolCall.function.arguments !== '{}') {
-                response = await selectedTool.function(
-                    selectedTool.params.parse(
-                        JSON.parse(toolCall.function.arguments),
-                    ),
-                );
-            } else {
-                response = await selectedTool.function();
+            let error: string | undefined;
+            try {
+                if (
+                    selectedTool.params &&
+                    toolCall.function.arguments !== '{}'
+                ) {
+                    response = await selectedTool.function(
+                        selectedTool.params.parse(
+                            JSON.parse(toolCall.function.arguments),
+                        ),
+                    );
+                } else {
+                    response = await selectedTool.function();
+                }
+            } catch (e) {
+                error = `${e}`;
             }
-            console.log('CALLED TOOL', toolCall, response);
             functionResponses.push({
                 toolUsed: selectedTool.name,
                 response,
+                error,
             });
         }
         return functionResponses;
