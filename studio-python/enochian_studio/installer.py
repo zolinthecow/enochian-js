@@ -23,7 +23,7 @@ def install_npm_dependencies():
           "version": "1.0.0",
           "private": true,
           "dependencies": {
-            "enochian-studio": "0.0.4"
+            "enochian-studio": "0.0.5"
           }
         }"""
         )
