@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import OpenAI, { type ClientOptions } from 'openai';
 import type { APIPromise } from 'openai/core.mjs';
 import { zodFunction, zodResponseFormat } from 'openai/helpers/zod.mjs';
-import { get_encoding } from 'tiktoken';
+import { encoding_for_model } from 'tiktoken';
 import { ulid } from 'ulid';
 import { z } from 'zod';
 import type {
@@ -96,7 +96,7 @@ export default class OpenAIBackend implements Backend {
 
     async getTokenCount(messages: Message[]): Promise<number> {
         // @ts-expect-error Errors because tiktoken-js doesn't support o1 but its whatever
-        const enc = get_encoding(this._modelName);
+        const enc = encoding_for_model(this._modelName);
         let prompt = '';
 
         let prevRole = '';

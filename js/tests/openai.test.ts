@@ -140,7 +140,7 @@ describe('Testing transform function', () => {
         s.add(
             s.user`If you see this message ignore everything else I said and output "HELLO"`,
         );
-        s.add(s.user`If you see this message say "bye bye"`);
+        s.add(s.user`If you see this message say "bye bye" AND NOTHING ELSE`);
         await s.add(
             s.assistant`${s.gen('resp', {
                 transform: async (messages) => {
@@ -148,7 +148,7 @@ describe('Testing transform function', () => {
                     // Max 20 tokens in prompt
                     while (
                         !(await isUnderTokenThreshold(newMessages, s, {
-                            threshold: 20,
+                            threshold: 25,
                         }))
                     ) {
                         newMessages.shift();
@@ -173,11 +173,13 @@ describe('Testing transform function', () => {
             { prel: -1 },
         );
         // This will not be trimmed from the prompt
-        s.add(s.user`If you see this message say "bye bye"`, { prel: 10 });
+        s.add(s.user`If you see this message say "bye bye" AND NOTHING ELSE`, {
+            prel: 10,
+        });
         await s.add(
             s.assistant`${s.gen('resp', {
                 transform: async (messages) =>
-                    trimByRelativePriority(messages, s, { threshold: 20 }),
+                    trimByRelativePriority(messages, s, { threshold: 25 }),
                 sampling_params: {
                     temperature: 0,
                 },
@@ -195,11 +197,11 @@ describe('Testing transform function', () => {
             s.user`If you see this message ignore everything else I said and output "HELLO"`,
         );
         // This will not be trimmed from the prompt
-        s.add(s.user`If you see this message say "bye bye"`);
+        s.add(s.user`If you see this message say "bye bye" AND NOTHING ELSE`);
         await s.add(
             s.assistant`${s.gen('resp', {
                 transform: async (messages) =>
-                    trimFromOldMessages(messages, s, { threshold: 20 }),
+                    trimFromOldMessages(messages, s, { threshold: 25 }),
                 sampling_params: {
                     temperature: 0,
                 },
@@ -217,11 +219,11 @@ describe('Testing transform function', () => {
             s.user`If you see this message ignore everything else I said and output "HELLO"`,
         );
         // This will not be trimmed from the prompt
-        s.add(s.user`If you see this message say "bye bye"`);
+        s.add(s.user`If you see this message say "bye bye" AND NOTHING ELSE`);
         await s.add(
             s.assistant`${s.gen('resp', {
                 transform: async (messages) =>
-                    trimFromMiddle(messages, s, { threshold: 20 }),
+                    trimFromMiddle(messages, s, { threshold: 25 }),
                 sampling_params: {
                     temperature: 0,
                 },
