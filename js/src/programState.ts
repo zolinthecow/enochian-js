@@ -502,25 +502,25 @@ export default class ProgramState {
         }
     }
 
-    set(
+    update(
         id: string,
         newMessage: Message,
         metadata?: { [key: string]: unknown },
         opts?: { deleteMessagesAfter?: boolean },
     ): ProgramState;
-    set(
+    update(
         id: string,
         newMessage: Promise<Message>,
         metadata?: { [key: string]: unknown },
         opts?: { deleteMessagesAfter?: boolean },
     ): Promise<ProgramState>;
-    set(
+    update(
         id: string,
         newMessage: AsyncGenerator<Message, Message, undefined>,
         metadata?: { [key: string]: unknown },
         opts?: { deleteMessagesAfter?: boolean },
     ): AsyncGenerator<Message>;
-    set(
+    update(
         id: string,
         newMessage:
             | Message

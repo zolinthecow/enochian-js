@@ -12,9 +12,12 @@ import ProgramState from '../src/index.js';
     console.log(s.get('a'));
     // Reset
     await s
-        .set('b', s.user`Tell me a short story`, {
+        .update('b', s.user`Tell me a short story`, undefined, {
             deleteMessagesAfter: true,
         })
-        .add(s.assistant`${s.gen('story')}`, { id: 'd' });
-    console.log(s.get('story'), s.get('d'));
+        .add(
+            s.assistant`${s.gen('story', { sampling_params: { max_new_tokens: 24 } })}`,
+            { id: 'd' },
+        );
+    console.log('---RESET---\n', s.get('story'), s.get('d'));
 })();
