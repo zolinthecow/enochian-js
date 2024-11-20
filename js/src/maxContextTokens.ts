@@ -26,13 +26,25 @@ export async function trimByRelativePriority(
     s: ProgramState,
     args: TrimFunctionArgs,
 ) {
-    const sortedMessages = messages.sort(
-        (a, b) => (a.prel ?? 0) - (b.prel ?? 0),
-    );
-    while (!(await isUnderTokenThreshold(sortedMessages, s, args))) {
-        sortedMessages.pop();
+    const indexesToRemove = Array.from(
+        { length: messages.length },
+        (_, i) => i,
+    ).sort((a, b) => (messages[a]?.prel ?? 0) - (messages[b]?.prel ?? 0));
+    const newMessages = messages;
+    let i = 0;
+    while (
+        newMessages.length &&
+        !(await isUnderTokenThreshold(newMessages, s, args))
+    ) {
+        const indexToRemove = indexesToRemove[i];
+        if (indexToRemove === undefined) {
+            console.error('The impossible happened');
+            return messages;
+        }
+        newMessages.splice(indexToRemove, 1);
+        i++;
     }
-    return sortedMessages;
+    return newMessages;
 }
 
 export async function trimFromMiddle(
@@ -41,7 +53,10 @@ export async function trimFromMiddle(
     args: TrimFunctionArgs,
 ) {
     const newMessages = messages;
-    while (!(await isUnderTokenThreshold(messages, s, args))) {
+    while (
+        newMessages.length &&
+        !(await isUnderTokenThreshold(newMessages, s, args))
+    ) {
         newMessages.splice(Math.floor(newMessages.length / 2), 1);
     }
     return newMessages;
@@ -53,7 +68,10 @@ export async function trimFromOldMessages(
     args: TrimFunctionArgs,
 ) {
     const newMessages = messages;
-    while (!(await isUnderTokenThreshold(messages, s, args))) {
+    while (
+        newMessages.length &&
+        !(await isUnderTokenThreshold(messages, s, args))
+    ) {
         newMessages.shift();
     }
     return newMessages;

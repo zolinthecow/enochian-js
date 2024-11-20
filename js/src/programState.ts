@@ -362,9 +362,13 @@ export default class ProgramState {
             const messagesToTransform: Message[] = [];
             const prefixCachedMessages: Message[] = [];
             const lastMessage = messages[messages.length - 1];
+            if (!lastMessage) {
+                console.error('LAST MESSAGE IS UNDEFINED?');
+                return messages;
+            }
 
             let isInPrefix = true;
-            for (let i = 0; i < messages.length; i++) {
+            for (let i = 0; i < messages.length - 1; i++) {
                 const m = messages[i];
                 if (!m) {
                     console.warn('Undefined message found in transform');
@@ -385,7 +389,11 @@ export default class ProgramState {
             }
             const transformedMessages =
                 await genInput.transform(messagesToTransform);
-            return [...prefixCachedMessages, ...transformedMessages];
+            return [
+                ...prefixCachedMessages,
+                ...transformedMessages,
+                lastMessage,
+            ];
         }
         if (!genInput || isNonStreamingInput(genInput)) {
             return async (messages: Message[]): Promise<string> => {

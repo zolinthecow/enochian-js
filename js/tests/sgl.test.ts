@@ -253,7 +253,7 @@ describe('Testing transform function', () => {
         expect(s.get('resp') === 'bye bye').toBe(true);
     });
 
-    it('does trim from old messages correctly', async () => {
+    it('does trim from middle correctly', async () => {
         const s = await new ProgramState().fromSGL(url);
 
         s.add(s.system`You are a helpful assistant`);
@@ -266,13 +266,13 @@ describe('Testing transform function', () => {
         await s.add(
             s.assistant`${s.gen('resp', {
                 transform: async (messages) =>
-                    trimFromMiddle(messages, s, { threshold: 20 }),
+                    trimFromMiddle(messages, s, { threshold: 25 }),
                 choices: ['HELLO', 'bye bye'],
                 sampling_params: {
                     temperature: 0,
                 },
             })}`,
         );
-        expect(s.get('resp') === 'bye bye').toBe(true);
+        expect(s.get('resp') === 'HELLO').toBe(true);
     });
 });

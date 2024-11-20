@@ -482,8 +482,8 @@ export default class SGLBackend implements Backend {
         const template = this._chatTemplateGroup.match(this._currentModel.path);
         const latestMessageRole =
             concatedMessages[concatedMessages.length - 1]?.role;
-        if (latestMessageRole !== 'assistant') {
-            throw new Error("Can only generate on assistant's turn.");
+        if (!latestMessageRole) {
+            throw new Error('No latest messages role');
         }
         const prefix_suffix = template.get_prefix_and_suffix(
             latestMessageRole,
