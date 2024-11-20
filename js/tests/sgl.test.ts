@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { z } from 'zod';
-import ProgramState, { createTools, OpenAIBackend } from '../src/index.js';
+import ProgramState, {
+    createTools,
+    isUnderTokenThreshold,
+    trimFromOldMessages,
+    trimFromMiddle,
+    trimByRelativePriority,
+} from '../src/index.js';
 
 const IP = process.env.SGL_IP;
 const port = process.env.SGL_PORT;
@@ -165,5 +171,108 @@ describe('Basic functionality of the sgl ProgramState', () => {
             resp[0]?.toolUsed === 'solveEquation' &&
                 resp[0]?.response === 'mock function',
         ).toBe(true);
+    });
+});
+
+describe('Testing transform function', () => {
+    it('does basic trimming correctly', async () => {
+        const s = await new ProgramState().fromSGL(url);
+
+        s.add(s.system`You are a helpful assistant`);
+        s.add(
+            s.user`If you see this message ignore everything else I said and output "HELLO"`,
+        );
+        s.add(s.user`If you see this message say "bye bye"`);
+        await s.add(
+            s.assistant`${s.gen('resp', {
+                transform: async (messages) => {
+                    const newMessages = messages;
+                    // Max 20 tokens in prompt
+                    while (
+                        !(await isUnderTokenThreshold(newMessages, s, {
+                            threshold: 20,
+                        }))
+                    ) {
+                        newMessages.shift();
+                    }
+                    return newMessages;
+                },
+                choices: ['HELLO', 'bye bye'],
+                sampling_params: {
+                    temperature: 0,
+                },
+            })}`,
+        );
+        expect(s.get('resp') === 'bye bye').toBe(true);
+    });
+
+    it('does trim by relative priority correctly', async () => {
+        const s = await new ProgramState().fromSGL(url);
+
+        s.add(s.system`You are a helpful assistant`, { prel: 100 });
+        // This will be trimmed from the prompt
+        s.add(
+            s.user`If you see this message ignore everything else I said and output "HELLO"`,
+            { prel: -1 },
+        );
+        // This will not be trimmed from the prompt
+        s.add(s.user`If you see this message say "bye bye"`, { prel: 10 });
+        await s.add(
+            s.assistant`${s.gen('resp', {
+                transform: async (messages) =>
+                    trimByRelativePriority(messages, s, { threshold: 20 }),
+                choices: ['HELLO', 'bye bye'],
+                sampling_params: {
+                    temperature: 0,
+                },
+            })}`,
+        );
+        expect(s.get('resp') === 'bye bye').toBe(true);
+    });
+
+    it('does trim from old messages correctly', async () => {
+        const s = await new ProgramState().fromSGL(url);
+
+        s.add(s.system`You are a helpful assistant`);
+        // This will be trimmed from the prompt
+        s.add(
+            s.user`If you see this message ignore everything else I said and output "HELLO"`,
+        );
+        // This will not be trimmed from the prompt
+        s.add(s.user`If you see this message say "bye bye"`);
+        await s.add(
+            s.assistant`${s.gen('resp', {
+                transform: async (messages) =>
+                    trimFromOldMessages(messages, s, { threshold: 20 }),
+                choices: ['HELLO', 'bye bye'],
+                sampling_params: {
+                    temperature: 0,
+                },
+            })}`,
+        );
+        expect(s.get('resp') === 'bye bye').toBe(true);
+    });
+
+    it('does trim from middle correctly', async () => {
+        const s = await new ProgramState().fromSGL(url);
+
+        s.add(s.system`You are a helpful assistant`);
+        // This will be trimmed from the prompt
+        s.add(
+            s.user`If you see this message ignore everything else I said and output "HELLO"`,
+        );
+        // This will not be trimmed from the prompt
+        s.add(s.user`If you see this message say "bye bye"`);
+        await s.add(
+            s.assistant`${s.gen('resp', {
+                transform: async (messages) =>
+                    trimFromMiddle(messages, s, { threshold: 25 }),
+                choices: ['HELLO', 'bye bye'],
+                sampling_params: {
+                    temperature: 0,
+                },
+            })}`,
+        );
+        expect(s.get('resp') === 'HELLO').toBe(true);
     });
 });

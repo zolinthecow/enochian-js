@@ -232,3 +232,212 @@ while (true) {
 
 That will repeatedly call the LLM, giving it the responses to its tool uses, until
 it decides it can finally directly respond to the user.
+
+## Max Prompt Tokens
+A downside of gradually building up conversation history is that your context length
+can grow much larger than you'd like. In applications where time to first token is
+critical, like copilot, it's critical to stay under a certain threshold of tokens
+you are submitting to the LLM at each time. The `.gen` function provides a `transform`
+callback that will take all the `Messages` added to the `ProgramState` previously, allow
+you to edit the array and return a new trimmed down array that `.gen` will use.
+
+```typescript
+import ProgramState, { isUnderTokenThreshold, type Message } from 'enochian-js';
+
+const s = await new ProgramState().fromSGL('http://localhost:30000');
+s.add(s.system`You are a helpful assistant.`);
+
+// Assume chatHistory is from a database query or something
+for (const message in chatHistory) {
+    if (message.role === 'user')
+        s.add(s.user`${message.content}`);
+    else
+        s.add(s.assistant`${message.content}`);
+}
+
+await s
+    .add(s.user`Tell me a joke about the conversation we just had.`);
+    .add(s.assistant`${s.gen('joke', {
+        transform: (messages) => {
+            const newMessages: Message[] = [];
+            // Keep the system prompt
+            if (messages[0].role === 'system') newMessages.push(messages[0]);
+
+            let i = messages.length - 1;
+            // Keep the most recent messages
+            while (i >= 1 && isUnderTokenThreshold(newMessages, 100)) {
+                newMessages.push(messages[i]);
+                i -= 1;
+            }
+            return newMessages;
+        }
+    })}`)
+```
+
+In this example we're removing the oldest messages from the chat history until we're under our
+`maxPromptTokens` threshold. Enochian provides a `isUnderTokenThreshold(message: Message[], tokenThreshold: number, maxOutputTokens?: number)`
+util function to make this check really easy. The `tokenThreshold` is for the number of tokens in the model's context window you want to take up.
+You can optionally provide a `maxOutputTokens` to *reserve* some number of tokens in the context window for your output tokens (since the number
+of output tokens also counts towards your requests context length). If a `maxOutputTokens` is not passed in then zero tokens will be reserved for
+the output and the model will generate until it hits the max length or an end-of-sequence token.
+
+You can also provide metadata to `.add` and access that metadata inside the `transform` function to
+trim tokens out that way.
+
+```typescript
+import ProgramState, { isUnderTokenThreshold, type Message } from 'enochian-js';
+
+const s = await new ProgramState().fromSGL('http://localhost:30000');
+s.add(s.system`An intelligent python programmer helping a friend program.`);
+
+// Assume you have various pieces of context from your user's IDE
+await s
+    .add(s.user`Current file: ${currentFileContent}`, { type: 'fileContent' })
+    .add(s.user`Code around cursor: ${codeAroundCursorContent}`, { type: 'codeAroundCursor' })
+    .add(s.user`File metadata: ${fileMetadata}`, { type: 'fileMetadata' })
+    .add(s.user`Help me finish off this piece of code: ${code}`, { type: 'userRequest' })
+    .add(s.assistant`${s.gen('answer', {
+        transform: (messages) => {
+            // Higher number == higher priority
+            const typesByPriority = {
+                'userRequest': 4,
+                'codeAroundCursor': 3,
+                'fileContext': 2,
+                'fileMetadata': 1,
+            };
+            const messagesByPriority = messages.sort(
+                (m1, m2) => typesByPriority[m2.type] - typesByPriority[m1.type]
+            );
+            const newMessages: Message[];
+            let i = 0;
+            while (i < messagesByPriority.length && isUnderTokenThreshold(100)) {
+                newMessages.push(messagesByPriority[i])
+            }
+            return newMessages;
+        }
+    })}`)
+```
+
+Enochian also provides `transform` presets for common patterns.
+
+You can do ranking by embedding similarity:
+
+```typescript
+import ProgramState, { trimBySimilarity } from 'enochian-js';
+
+const s = await new ProgramState().fromSGL('http://localhost:30000');
+
+// Assume you have various pieces of context from your user's IDE
+await s
+    .add(s.user`Current file: ${currentFileContent}`, { shouldBeRelevantTo: userRequestCode })
+    .add(s.user`Code around cursor: ${codeAroundCursorContent}`, { shouldBeRelevantTo: userRequestCode })
+    .add(s.user`File metadata: ${fileMetadata}`, { shouldBeRelevantTo: userRequestCode })
+    .add(s.user`Help me finish off this piece of code: ${userRequestCode}`, { shouldBeRelevantTo: userRequestCode })
+    .add(s.assistant`${s.gen('answer', {
+        transform: (messages) => trimBySimilarity(messages, 100)
+    })}`);
+```
+
+Or trim from middle to remove messages starting from the middle:
+
+```typescript
+import ProgramState, { trimFromMiddle } from 'enochian-js';
+
+const s = await new ProgramState().fromSGL('http://localhost:30000');
+
+// Assume chatHistory is from a database query or something
+for (const message in chatHistory) {
+    if (message.role === 'user')
+        s.add(s.user`${message.content}`);
+    else
+        s.add(s.assistant`${message.content}`);
+}
+
+await s
+    .add(s.user`Tell me a joke about the conversation we just had.`);
+    .add(s.assistant`${s.gen('joke', {
+        transform: (messages) => trimFromMiddle(messages, 100)
+    })}`);
+```
+
+These presets can be combined however you like, since all they do is take in
+an array of `Message` and return the modified array. You can do trim from middle
+on previous chat history, and then do embedding similarity ranking on the current
+request:
+
+```typescript
+import ProgramState, { trimFromMiddle, trimBySimilarity } from 'enochian-js';
+
+const s = await new ProgramState().fromSGL('http://localhost:30000');
+
+// Assume chatHistory is from a database query or something
+for (const message in chatHistory) {
+    if (message.role === 'user')
+        s.add(s.user`${message.content}`, { type: 'chatHistory' });
+    else
+        s.add(s.assistant`${message.content}`, { type: 'chatHistory' });
+}
+
+// Assume you have various pieces of context from your user's IDE
+await s
+    .add(s.user`Current file: ${currentFileContent}`, { shouldBeRelevantTo: userRequestCode })
+    .add(s.user`Code around cursor: ${codeAroundCursorContent}`, { shouldBeRelevantTo: userRequestCode })
+    .add(s.user`File metadata: ${fileMetadata}`, { shouldBeRelevantTo: userRequestCode })
+    .add(s.user`Help me finish off this piece of code: ${userRequestCode}`, { shouldBeRelevantTo: userRequestCode })
+    .add(s.assistant`${s.gen('answer', {
+        transform: (messages) => {
+            // I want the chat history to use at most 50 tokens:
+            const trimmedHistoryMessages = trimFromMiddle(
+                messages.filter(m => m.type === 'chatHistory'), 50
+            );
+            // I want the current message to use the other 50 tokens:
+            const currentRequestMessages = trimBySimilarity(
+                messages.filter(m => m.prel !== undefined), 50
+            );
+            return [...trimmedHistoryMessages, currentRequestMessages]
+        }
+    })}`);
+```
+
+## Prefix Caching
+
+Prefix caching is a common way to reduce computation needed for LLM requests and is
+also very relevant to the max prompt token `transform` function. If a common prefix
+of a very frequently used prompt is cached (think long system prompts), you can skip
+the entire computation of that prefix, effectively removing it from your max prompt
+tokens restriction. For that reason, if you specify messages with the metadata
+`{ probablyPrefixCached: true }`, then they will NOT be provided to the `transform` function.
+Use this wisely!
+
+```typescript
+import ProgramState, { trimFromStart } from 'enochian-js';
+
+const s = await new ProgramState().fromSGL('http://localhost:30000');
+
+s.add(s.system`${longSystemPrompt}`, { probablyPrefixCached: true });
+
+// Assume chatHistory is from a database query or something
+for (const message in chatHistory) {
+    if (message.role === 'user')
+        s.add(s.user`${message.content}`);
+    else
+        s.add(s.assistant`${message.content}`);
+}
+
+await s
+    .add(s.user`Tell me a joke about the conversation we just had.`);
+    .add(s.assistant`${s.gen('joke', {
+        // Will not remove the system prompt even if it's longer than 100 tokens
+        transform: (messages) => trimFromStart(messages, 100)
+    })}`);
+```
+
+<Note>
+You should probably always use `fromPrefixCache: true` for system prompts and any
+common prefixes in your prompts. Most providers automatically will do prefix caching
+for you as its also advantageous for them to reduce the amount of computation they
+have to do per request.
+</Note>
+
+TODO: Put in relative priority example into api reference
+      rawTransform

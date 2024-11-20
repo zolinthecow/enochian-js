@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import OpenAI, { type ClientOptions } from 'openai';
 import type { APIPromise } from 'openai/core.mjs';
 import { zodFunction, zodResponseFormat } from 'openai/helpers/zod.mjs';
+import { encoding_for_model } from 'tiktoken';
 import { ulid } from 'ulid';
 import { z } from 'zod';
 import type {
@@ -9,12 +10,12 @@ import type {
     GenerateReqNonStreamingInput,
     GenerateReqStreamingInput,
     GenerateRespSingle,
+    Message,
     ToolUseParams,
 } from '../api.js';
 import { postStudioPrompt } from '../debug.js';
 import { isNonStreamingInput } from '../utils.js';
 import type Backend from './backend.interface.js';
-import type { Message } from './backend.interface.js';
 
 export type OpenAISetModelParams = {
     baseURL?: string;
@@ -91,6 +92,25 @@ export default class OpenAIBackend implements Backend {
                 return await this._plainGeneration(messages, genInput);
             }
         }
+    }
+
+    async getTokenCount(messages: Message[]): Promise<number> {
+        // @ts-expect-error Errors because tiktoken-js doesn't support o1 but its whatever
+        const enc = encoding_for_model(this._modelName);
+        let prompt = '';
+
+        let prevRole = '';
+        let numRoles = 0;
+        for (const m of messages) {
+            if (m.role !== prevRole) {
+                prevRole = m.role;
+                numRoles++;
+            }
+            prompt += m.content + m.content.endsWith(' ') ? '' : ' ';
+        }
+
+        const tokens = enc.encode(prompt);
+        return tokens.length + 2 * numRoles;
     }
 
     private async _createChatCompletion<

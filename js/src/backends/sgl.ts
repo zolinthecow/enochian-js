@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import { AutoTokenizer } from '@huggingface/transformers';
 import { ulid } from 'ulid';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
@@ -12,6 +13,7 @@ import {
     type GenerateRespSingle,
     GenerateRespSingleSchema,
     GetModelInfoSchema,
+    type Message,
     type MetaInfo,
     type MetaInfoWithLogprobs,
     type ToolUseParams,
@@ -20,7 +22,6 @@ import { ChatTemplateGroup } from '../chatTemplate.js';
 import { tokenLengthNormalized } from '../choices.js';
 import { postStudioPrompt } from '../debug.js';
 import { isNonStreamingInput } from '../utils.js';
-import type { Message } from './backend.interface.js';
 import type Backend from './backend.interface.js';
 
 export type SGLSetModelParams = string;
@@ -115,6 +116,17 @@ export default class SGLBackend implements Backend {
                 return await this._plainGeneration(messages, genInput);
             }
         }
+    }
+
+    async getTokenCount(messages: Message[]): Promise<number> {
+        const prompt = this._messagesToPrompt(messages);
+
+        const tokenizer = await AutoTokenizer.from_pretrained(
+            this._currentModel.path,
+        );
+        const { input_ids } = await tokenizer(prompt);
+
+        return input_ids.size;
     }
 
     // If someone does `s.add(s.user`...`).add(s.user`...`)` it should be combined into one `user` message
@@ -470,8 +482,8 @@ export default class SGLBackend implements Backend {
         const template = this._chatTemplateGroup.match(this._currentModel.path);
         const latestMessageRole =
             concatedMessages[concatedMessages.length - 1]?.role;
-        if (latestMessageRole !== 'assistant') {
-            throw new Error("Can only generate on assistant's turn.");
+        if (!latestMessageRole) {
+            throw new Error('No latest messages role');
         }
         const prefix_suffix = template.get_prefix_and_suffix(
             latestMessageRole,
@@ -509,9 +521,9 @@ export default class SGLBackend implements Backend {
             rid: reqId,
             // Default sampling params:
             sampling_params: {
-                max_new_tokens: 128,
+                max_new_tokens: 1024,
                 min_new_tokens: 0,
-                temperature: 1.0,
+                temperature: 0,
                 top_p: 1.0,
                 top_k: 1 << 30, // Whole vocabulary
                 min_p: 0.0,
