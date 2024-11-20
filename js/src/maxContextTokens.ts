@@ -29,7 +29,7 @@ export async function trimByRelativePriority(
     const sortedMessages = messages.sort(
         (a, b) => (a.prel ?? 0) - (b.prel ?? 0),
     );
-    while (!isUnderTokenThreshold(sortedMessages, s, args)) {
+    while (!(await isUnderTokenThreshold(sortedMessages, s, args))) {
         sortedMessages.pop();
     }
     return sortedMessages;
@@ -41,7 +41,7 @@ export async function trimFromMiddle(
     args: TrimFunctionArgs,
 ) {
     const newMessages = messages;
-    while (!isUnderTokenThreshold(messages, s, args)) {
+    while (!(await isUnderTokenThreshold(messages, s, args))) {
         newMessages.splice(Math.floor(newMessages.length / 2), 1);
     }
     return newMessages;
@@ -53,7 +53,7 @@ export async function trimFromOldMessages(
     args: TrimFunctionArgs,
 ) {
     const newMessages = messages;
-    while (!isUnderTokenThreshold(messages, s, args)) {
+    while (!(await isUnderTokenThreshold(messages, s, args))) {
         newMessages.shift();
     }
     return newMessages;

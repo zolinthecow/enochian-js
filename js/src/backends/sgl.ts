@@ -443,10 +443,8 @@ export default class SGLBackend implements Backend {
                     `No tool was selected: ${JSON.stringify(parsedGenJson, null, 2)}`,
                 );
             }
-            console.log('💎 GONNA USE TOOL', toolDef);
             let toolFunctionResp: unknown;
             if (toolDef.params) {
-                console.log('WITH PARAMS', toolDef.params);
                 toolFunctionResp = await toolToUse.function(toolDef.params);
             } else {
                 toolFunctionResp = await toolToUse.function();
@@ -517,9 +515,9 @@ export default class SGLBackend implements Backend {
             rid: reqId,
             // Default sampling params:
             sampling_params: {
-                max_new_tokens: 128,
+                max_new_tokens: 1024,
                 min_new_tokens: 0,
-                temperature: 1.0,
+                temperature: 0,
                 top_p: 1.0,
                 top_k: 1 << 30, // Whole vocabulary
                 min_p: 0.0,
