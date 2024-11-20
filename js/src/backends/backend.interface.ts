@@ -1,17 +1,11 @@
 import type {
-    GenerateReqInput,
     GenerateReqNonStreamingInput,
     GenerateReqStreamingInput,
-    GenerateResp,
     GenerateRespSingle,
+    Message,
 } from '../api.js';
 import type { OpenAISetModelParams } from './openai.js';
 import type { SGLSetModelParams } from './sgl.js';
-
-export type Message = {
-    role: 'user' | 'assistant' | 'system';
-    content: string;
-};
 
 export type SetModelParams = OpenAISetModelParams | SGLSetModelParams;
 
@@ -36,4 +30,5 @@ export default interface Backend {
     >;
     getPrompt(messages: Message[]): string;
     clone(): Backend;
+    getTokenCount(message: Message[]): Promise<number>;
 }

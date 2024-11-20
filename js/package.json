@@ -33,8 +33,10 @@
     },
     "packageManager": "pnpm@9.11.0",
     "dependencies": {
+        "@huggingface/transformers": "^3.0.2",
         "enochian-studio": "workspace:^*",
         "openai": "^4.67.3",
+        "tiktoken": "^1.0.17",
         "ulid": "^2.3.0",
         "zod": "^3.23.8",
         "zod-to-json-schema": "^3.23.3"

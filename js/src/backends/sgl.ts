@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import { AutoTokenizer } from '@huggingface/transformers';
 import { ulid } from 'ulid';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
@@ -12,6 +13,7 @@ import {
     type GenerateRespSingle,
     GenerateRespSingleSchema,
     GetModelInfoSchema,
+    type Message,
     type MetaInfo,
     type MetaInfoWithLogprobs,
     type ToolUseParams,
@@ -20,7 +22,6 @@ import { ChatTemplateGroup } from '../chatTemplate.js';
 import { tokenLengthNormalized } from '../choices.js';
 import { postStudioPrompt } from '../debug.js';
 import { isNonStreamingInput } from '../utils.js';
-import type { Message } from './backend.interface.js';
 import type Backend from './backend.interface.js';
 
 export type SGLSetModelParams = string;
@@ -115,6 +116,17 @@ export default class SGLBackend implements Backend {
                 return await this._plainGeneration(messages, genInput);
             }
         }
+    }
+
+    async getTokenCount(messages: Message[]): Promise<number> {
+        const prompt = this._messagesToPrompt(messages);
+
+        const tokenizer = await AutoTokenizer.from_pretrained(
+            this._currentModel.path,
+        );
+        const { input_ids } = await tokenizer(prompt);
+
+        return input_ids.length;
     }
 
     // If someone does `s.add(s.user`...`).add(s.user`...`)` it should be combined into one `user` message

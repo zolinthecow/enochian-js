@@ -33,6 +33,39 @@ export type DebugInfo = {
     debugPromptID: string | null;
 };
 
+/**
+ * Metadata to pass into a function. It can be anything, but this type provides
+ * some keys that work with built-in presets
+ */
+export type MessageMetadata = {
+    /**
+     * Attaches an ID to a message so that it can be referred to in update calls and stuff
+     */
+    id?: string;
+    /**
+     * Is this message probably going to be in the prefix cache? If this value is
+     * set to true, then the message will NOT be passed into any `transform` functions
+     * since amortized over many generations it will not cost anything.
+     */
+    probablyPrefixCached?: boolean;
+    /**
+     * Relative priority. It can be used with the `trimByRelativePriority` transform
+     * preset to remove messages by order of priority, lower means will be trimmed first
+     */
+    prel?: number;
+    /**
+     * Used to group messages under "buckets" which can then be trimmed by relevancy
+     */
+    type?: string;
+    // Catchall
+    [key: string]: unknown;
+};
+
+export type Message = {
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+} & MessageMetadata;
+
 // DOCS COVERAGE: /api-reference/request-types
 /**
  * Base type for generation request input without `stream` and `choices`.
@@ -66,6 +99,12 @@ type GenerateReqInputBase = {
     debug?: DebugInfo | null;
     /** Tools */
     tools?: ToolUseParams;
+    /**
+     * Transform callback.
+     * Passes in a list of messages that are valid to be transformed (messages that should not be ignored)
+     * and returns the messages to actually send to the LLM backend
+     */
+    transform?: (messages: Message[]) => Message[];
 };
 
 // DOCS COVERAGE: /api-reference/request-types

@@ -7,6 +7,8 @@ import type {
     GenerateReqNonStreamingInput,
     GenerateReqStreamingInput,
     GenerateRespSingle,
+    Message,
+    MessageMetadata,
     MetaInfo,
     ToolUseParams,
 } from './api.js';
@@ -14,8 +16,6 @@ import type Backend from './backends/backend.interface.js';
 import OpenAIBackend from './backends/openai.js';
 import SGLBackend, { type SGLSetModelParams } from './backends/sgl.js';
 import { isNonStreamingInput } from './utils.js';
-
-type Message = { role: 'user' | 'assistant' | 'system'; content: string };
 
 type Stringifiable = string | number | boolean | bigint;
 
@@ -39,7 +39,6 @@ export default class ProgramState {
     }
 
     async fromSGL(opts: SGLSetModelParams): Promise<ProgramState> {
-        console.log('HI', opts);
         if (!(this._backend instanceof SGLBackend)) {
             this._backend = new SGLBackend();
         }
@@ -286,20 +285,32 @@ export default class ProgramState {
         }
     }
 
-    add(message: Message): ProgramState;
-    add(message: Promise<Message>): Promise<ProgramState>;
+    add(message: Message, { ...metadata }): ProgramState;
+    add(message: Promise<Message>, { ...metadata }): Promise<ProgramState>;
     add(
         message: AsyncGenerator<Message, Message, undefined>,
+        { ...metadata },
     ): AsyncGenerator<Message>;
     add(
         message:
             | Message
             | Promise<Message>
             | AsyncGenerator<Message, Message, undefined>,
+        { ...metadata },
     ): ProgramState | Promise<ProgramState> | AsyncGenerator<Message> {
+        function getMessage(m: Message) {
+            const newMessage = m;
+            if (newMessage.role === 'system') {
+                newMessage.probablyPrefixCached = true;
+            }
+            return newMessage;
+        }
+
         if (message instanceof Promise) {
             return (async () => {
-                this._messages.push(await message);
+                this._messages.push(
+                    getMessage({ ...(await message), ...metadata }),
+                );
                 return this;
             })();
         } else if (isAsyncMessageGenerator(message)) {
@@ -308,10 +319,12 @@ export default class ProgramState {
                     yield m;
                 }
                 const fullMessage = await message.next();
-                this._messages.push(fullMessage.value);
+                this._messages.push(
+                    getMessage({ ...fullMessage.value, ...metadata }),
+                );
             }.call(this);
         } else {
-            this._messages.push(message);
+            this._messages.push(getMessage({ ...message, ...metadata }));
             return this;
         }
     }
@@ -340,9 +353,34 @@ export default class ProgramState {
             !genInput?.sampling_params?.n || genInput?.sampling_params?.n === 1,
             'Generating multiple responses is unimplemented.',
         );
+
+        function getTransformedMessages(messages: Message[]) {
+            if (!genInput?.transform) return messages;
+            const messagesToTransform: Message[] = [];
+            const prefixCachedMessages: Message[] = [];
+
+            let isInPrefix = true;
+            for (const m of messages) {
+                if (!m.probablyPrefixCached) {
+                    isInPrefix = false;
+                } else if (!isInPrefix) {
+                    // If it's marked as probablyPrefixCached but we've left the prefix already then
+                    // the prompt is messed up.
+                    console.warn(
+                        'Non-contiguous prefix block found, you *probably* messed up!! Will not apply transform',
+                    );
+                    return messages;
+                }
+                if (isInPrefix) prefixCachedMessages.push(m);
+                else messagesToTransform.push(m);
+            }
+            const transformedMessages = genInput.transform(messagesToTransform);
+            return [...prefixCachedMessages, ...transformedMessages];
+        }
         if (!genInput || isNonStreamingInput(genInput)) {
             return async (messages: Message[]): Promise<string> => {
-                const ans = await this._backend.gen(messages, {
+                const messagesToUse = getTransformedMessages(messages);
+                const ans = await this._backend.gen(messagesToUse, {
                     ...genInput,
                     debug: this._debug,
                 });
@@ -355,8 +393,9 @@ export default class ProgramState {
         } else {
             const self = this;
             return async function* (messages: Message[]) {
+                const messagesToUse = getTransformedMessages(messages);
                 // We expect the function to yield individual chunks, then return the final message
-                const generator = await self._backend.gen(messages, {
+                const generator = await self._backend.gen(messagesToUse, {
                     ...genInput,
                     debug: self._debug,
                 });
@@ -375,6 +414,10 @@ export default class ProgramState {
                 self._answers[answerKey] = fullMessage.value;
             };
         }
+    }
+
+    async getTokenCount(messages: Message[]) {
+        return await this._backend.getTokenCount(messages);
     }
 
     fork(_numForks?: number) {
