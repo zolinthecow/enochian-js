@@ -40,7 +40,7 @@ const requestMetadata = {
         debugPromptID: 'TEMP',
     },
     sampling_params: {
-        max_new_tokens: 128,
+        max_new_tokens: 1024,
         min_new_tokens: 0,
         temperature: 0,
         top_p: 1,
