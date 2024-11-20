@@ -126,7 +126,7 @@ export default class SGLBackend implements Backend {
         );
         const { input_ids } = await tokenizer(prompt);
 
-        return input_ids.length;
+        return input_ids.size;
     }
 
     // If someone does `s.add(s.user`...`).add(s.user`...`)` it should be combined into one `user` message

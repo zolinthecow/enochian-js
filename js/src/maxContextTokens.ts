@@ -18,7 +18,7 @@ export async function isUnderTokenThreshold(
     const reservedOutputTokens = !args.numReservedForOutputTokens
         ? 0
         : args.numReservedForOutputTokens;
-    return tokenCount + reservedOutputTokens < args.threshold;
+    return tokenCount + reservedOutputTokens <= args.threshold;
 }
 
 export async function trimByRelativePriority(

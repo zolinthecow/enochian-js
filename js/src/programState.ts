@@ -285,18 +285,21 @@ export default class ProgramState {
         }
     }
 
-    add(message: Message, { ...metadata }): ProgramState;
-    add(message: Promise<Message>, { ...metadata }): Promise<ProgramState>;
+    add(message: Message, metadata?: { [key: string]: unknown }): ProgramState;
+    add(
+        message: Promise<Message>,
+        metadata?: { [key: string]: unknown },
+    ): Promise<ProgramState>;
     add(
         message: AsyncGenerator<Message, Message, undefined>,
-        { ...metadata },
+        metadata?: { [key: string]: unknown },
     ): AsyncGenerator<Message>;
     add(
         message:
             | Message
             | Promise<Message>
             | AsyncGenerator<Message, Message, undefined>,
-        { ...metadata },
+        metadata?: { [key: string]: unknown },
     ): ProgramState | Promise<ProgramState> | AsyncGenerator<Message> {
         function getMessage(m: Message) {
             const newMessage = m;
@@ -354,7 +357,7 @@ export default class ProgramState {
             'Generating multiple responses is unimplemented.',
         );
 
-        function getTransformedMessages(messages: Message[]) {
+        async function getTransformedMessages(messages: Message[]) {
             if (!genInput?.transform) return messages;
             const messagesToTransform: Message[] = [];
             const prefixCachedMessages: Message[] = [];
@@ -374,12 +377,13 @@ export default class ProgramState {
                 if (isInPrefix) prefixCachedMessages.push(m);
                 else messagesToTransform.push(m);
             }
-            const transformedMessages = genInput.transform(messagesToTransform);
+            const transformedMessages =
+                await genInput.transform(messagesToTransform);
             return [...prefixCachedMessages, ...transformedMessages];
         }
         if (!genInput || isNonStreamingInput(genInput)) {
             return async (messages: Message[]): Promise<string> => {
-                const messagesToUse = getTransformedMessages(messages);
+                const messagesToUse = await getTransformedMessages(messages);
                 const ans = await this._backend.gen(messagesToUse, {
                     ...genInput,
                     debug: this._debug,
@@ -393,7 +397,7 @@ export default class ProgramState {
         } else {
             const self = this;
             return async function* (messages: Message[]) {
-                const messagesToUse = getTransformedMessages(messages);
+                const messagesToUse = await getTransformedMessages(messages);
                 // We expect the function to yield individual chunks, then return the final message
                 const generator = await self._backend.gen(messagesToUse, {
                     ...genInput,

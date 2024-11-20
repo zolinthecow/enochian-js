@@ -104,7 +104,7 @@ type GenerateReqInputBase = {
      * Passes in a list of messages that are valid to be transformed (messages that should not be ignored)
      * and returns the messages to actually send to the LLM backend
      */
-    transform?: (messages: Message[]) => Message[];
+    transform?: (messages: Message[]) => Promise<Message[]>;
 };
 
 // DOCS COVERAGE: /api-reference/request-types
