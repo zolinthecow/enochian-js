@@ -3,6 +3,6 @@
     "version": "1.0.0",
     "private": true,
     "dependencies": {
-        "enochian-studio": "0.0.3"
+        "enochian-studio": "0.0.4"
     }
 }
