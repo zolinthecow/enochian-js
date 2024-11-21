@@ -76,7 +76,7 @@ export default class ProgramState {
             this: ProgramState,
             strings: TemplateStringsArray,
             ...values: Stringifiable[]
-        ): Message;
+        ): Message[];
         function roleFunction(
             this: ProgramState,
             strings: TemplateStringsArray,
@@ -85,7 +85,7 @@ export default class ProgramState {
                 | Promise<Stringifiable>
                 | Stringifiable
             )[]
-        ): Promise<Message>;
+        ): Promise<Message[]>;
         function roleFunction(
             this: ProgramState,
             strings: TemplateStringsArray,
@@ -95,7 +95,7 @@ export default class ProgramState {
                 | Promise<Stringifiable>
                 | Stringifiable
             )[]
-        ): AsyncGenerator<Message>;
+        ): AsyncGenerator<Message, Message[], void>;
         function roleFunction(
             this: ProgramState,
             strings: TemplateStringsArray,
@@ -112,10 +112,13 @@ export default class ProgramState {
                       | Promise<Stringifiable>
                       | Stringifiable
                   )[]
-        ): Message | Promise<Message> | AsyncGenerator<Message> {
+        ):
+            | Message[]
+            | Promise<Message[]>
+            | AsyncGenerator<Message, Message[], void> {
             if (values.some((v) => isGenAsyncGenerator(v))) {
                 return async function* (this: ProgramState) {
-                    const chunks = this._processRoleStringTemplate(
+                    const generator = this._processRoleStringTemplate(
                         role,
                         strings,
                         ...(values as (
@@ -125,39 +128,38 @@ export default class ProgramState {
                             | Stringifiable
                         )[]),
                     );
-                    for await (const chunk of chunks) {
-                        yield {
-                            role,
-                            content: chunk,
-                        };
+                    let chunk = await generator.next();
+                    while (!chunk.done) {
+                        yield chunk.value;
+                        chunk = await generator.next();
                     }
+                    // Get last message
+                    const lastChunk = chunk;
+                    if (!lastChunk.value || !lastChunk.done) {
+                        throw new Error('Missing return from gen');
+                    }
+                    return lastChunk.value;
                 }.call(this);
             } else if (
                 values.some(
                     (v) => isGenAsyncFunction(v) || v instanceof Promise,
                 )
             ) {
-                return (async () => ({
+                return this._processRoleStringTemplate(
                     role,
-                    content: await this._processRoleStringTemplate(
-                        role,
-                        strings,
-                        ...(values as (
-                            | GenAsyncFunctionReturnType
-                            | Promise<Stringifiable>
-                            | Stringifiable
-                        )[]),
-                    ),
-                }))();
+                    strings,
+                    ...(values as (
+                        | GenAsyncFunctionReturnType
+                        | Promise<Stringifiable>
+                        | Stringifiable
+                    )[]),
+                );
             } else {
-                return {
+                return this._processRoleStringTemplate(
                     role,
-                    content: this._processRoleStringTemplate(
-                        role,
-                        strings,
-                        ...(values as Stringifiable[]),
-                    ),
-                };
+                    strings,
+                    ...(values as Stringifiable[]),
+                );
             }
         }
         return roleFunction;
@@ -171,7 +173,7 @@ export default class ProgramState {
         role: 'system' | 'user' | 'assistant',
         strings: TemplateStringsArray,
         ...values: Stringifiable[]
-    ): string;
+    ): Message[];
     private _processRoleStringTemplate(
         role: 'system' | 'user' | 'assistant',
         strings: TemplateStringsArray,
@@ -180,7 +182,7 @@ export default class ProgramState {
             | Promise<Stringifiable>
             | Stringifiable
         )[]
-    ): Promise<string>;
+    ): Promise<Message[]>;
     private _processRoleStringTemplate(
         role: 'system' | 'user' | 'assistant',
         strings: TemplateStringsArray,
@@ -190,7 +192,7 @@ export default class ProgramState {
             | Promise<Stringifiable>
             | Stringifiable
         )[]
-    ): AsyncGenerator<string>;
+    ): AsyncGenerator<Message, Message[], void>;
     private _processRoleStringTemplate(
         role: 'system' | 'user' | 'assistant',
         strings: TemplateStringsArray,
@@ -207,76 +209,110 @@ export default class ProgramState {
                   | Promise<Stringifiable>
                   | Stringifiable
               )[]
-    ): string | Promise<string> | AsyncGenerator<string> {
+    ):
+        | Message[]
+        | Promise<Message[]>
+        | AsyncGenerator<Message, Message[], void> {
+        const allMessages: Message[] = [];
+        function createLatestMessage(): Message {
+            allMessages.push({ role, content: '' });
+            return (
+                allMessages[allMessages.length - 1] ?? {
+                    role,
+                    content: '',
+                }
+            );
+        }
+        function getFullMessage() {
+            return {
+                role,
+                content: allMessages.reduce((acc, m) => acc + m.content, ''),
+            };
+        }
+
         // If there is any async generator function it should become a generator
         if (values.some((v) => isGenAsyncGenerator(v))) {
             return async function* (this: ProgramState) {
-                const curMessage: Message = {
-                    role,
-                    content: '',
-                };
+                // Split up any interpolated gen's into it's own message
+                let latestMessage = createLatestMessage();
                 for (let i = 0; i < strings.length; i++) {
-                    curMessage.content += strings[i];
+                    latestMessage.content += strings[i];
                     if (i < values.length) {
                         const value = values[i];
                         if (isGenAsyncGenerator(value)) {
+                            latestMessage = createLatestMessage();
                             const generator = value([
                                 ...this._messages,
-                                curMessage,
+                                getFullMessage(),
                             ]);
-                            for await (const chunk of generator) {
-                                curMessage.content += chunk;
-                                yield chunk;
+                            for await (const messageChunk of generator) {
+                                latestMessage.content += messageChunk.content;
+                                latestMessage.id = messageChunk.id;
+                                latestMessage.genID = messageChunk.genID;
+                                yield messageChunk;
                             }
+                            latestMessage = createLatestMessage();
                         } else if (isGenAsyncFunction(value)) {
-                            const generatedText = await value([
+                            latestMessage = createLatestMessage();
+                            const generatedMessage = await value([
                                 ...this._messages,
-                                curMessage,
+                                getFullMessage(),
                             ]);
-                            curMessage.content += generatedText;
-                            yield generatedText;
+                            latestMessage.content = generatedMessage.content;
+                            latestMessage.id = generatedMessage.id;
+                            latestMessage.genID = generatedMessage.genID;
+                            yield latestMessage;
+                            latestMessage = createLatestMessage();
                         } else if (value instanceof Promise) {
                             const awaited = (await value).toString();
-                            curMessage.content += awaited;
-                            yield awaited;
+                            latestMessage.content += awaited;
+                            yield {
+                                role,
+                                content: awaited,
+                            };
                         } else if (value !== undefined) {
                             const toAppend = value.toString();
-                            curMessage.content += toAppend;
-                            yield toAppend;
+                            latestMessage.content += toAppend;
+                            yield {
+                                role,
+                                content: toAppend,
+                            };
                         }
                     }
                 }
+                return allMessages.filter((m) => m.content !== '');
             }.call(this);
         } else if (
             values.some((v) => isGenAsyncFunction(v) || v instanceof Promise)
         ) {
             // Should only be async if there is an async function inside `values`.
-            const processTemplate = async (): Promise<string> => {
-                const curMessage: Message = {
-                    role,
-                    content: '',
-                };
+            const processTemplate = async (): Promise<Message[]> => {
+                let latestMessage = createLatestMessage();
                 for (let i = 0; i < strings.length; i++) {
-                    curMessage.content += strings[i];
+                    latestMessage.content += strings[i];
                     if (i < values.length) {
                         const value = values[i];
                         if (isGenAsyncFunction(value)) {
-                            const generatedText = await value([
+                            latestMessage = createLatestMessage();
+                            const generatedMessage = await value([
                                 ...this._messages,
-                                curMessage,
+                                getFullMessage(),
                             ]);
                             // Should trim out the generated end tokens
-                            curMessage.content += generatedText;
+                            latestMessage.content = generatedMessage.content;
+                            latestMessage.id = generatedMessage.id;
+                            latestMessage.genID = generatedMessage.genID;
+                            latestMessage = createLatestMessage();
                         } else if (value instanceof Promise) {
                             const awaited = await value;
-                            curMessage.content += awaited.toString();
+                            latestMessage.content += awaited.toString();
                         } else if (value !== undefined) {
                             const toAppend = value.toString();
-                            curMessage.content += toAppend;
+                            latestMessage.content += toAppend;
                         }
                     }
                 }
-                return curMessage.content;
+                return allMessages.filter((m) => m.content !== '');
             };
 
             return (async () => {
@@ -284,56 +320,84 @@ export default class ProgramState {
             })();
         } else {
             // If there are no async functions inside the string template then just concat them together
-            return strings.reduce(
-                (acc, str, i) => acc + str + (values[i] || ''),
-                '',
-            );
+            return [
+                {
+                    role,
+                    content: strings.reduce(
+                        (acc, str, i) => acc + str + (values[i] || ''),
+                        '',
+                    ),
+                },
+            ];
         }
     }
 
-    add(message: Message, metadata?: { [key: string]: unknown }): ProgramState;
     add(
-        message: Promise<Message>,
+        messages: Message[],
+        metadata?: { [key: string]: unknown },
+    ): ProgramState;
+    add(
+        messages: Promise<Message[]>,
         metadata?: { [key: string]: unknown },
     ): Promise<ProgramState>;
     add(
-        message: AsyncGenerator<Message, Message, undefined>,
+        messages: AsyncGenerator<Message, Message[], undefined>,
         metadata?: { [key: string]: unknown },
     ): AsyncGenerator<Message>;
     add(
-        message:
-            | Message
-            | Promise<Message>
-            | AsyncGenerator<Message, Message, undefined>,
+        messages:
+            | Message[]
+            | Promise<Message[]>
+            | AsyncGenerator<Message, Message[], undefined>,
         metadata?: { [key: string]: unknown },
     ): ProgramState | Promise<ProgramState> | AsyncGenerator<Message> {
-        function getMessage(m: Message) {
-            const newMessage = m;
-            if (newMessage.role === 'system') {
-                newMessage.probablyPrefixCached = true;
+        function getMessages(messages: Message[]) {
+            const newMessages: Message[] = [];
+            for (const message of messages) {
+                const m = message;
+                if (m.role === 'system') {
+                    m.probablyPrefixCached = true;
+                }
+                newMessages.push(m);
             }
-            return newMessage;
+            return newMessages;
         }
 
-        if (message instanceof Promise) {
+        if (messages instanceof Promise) {
             return (async () => {
-                this._messages.push(
-                    getMessage({ ...(await message), ...metadata }),
-                );
+                const m: Message[] = [];
+                for (const message of await messages) {
+                    m.push({ ...message, ...metadata });
+                }
+
+                this._messages.push(...getMessages(m));
                 return this;
             })();
-        } else if (isAsyncMessageGenerator(message)) {
+        } else if (isAsyncMessageGenerator(messages)) {
             return async function* (this: ProgramState) {
-                for await (const m of message) {
-                    yield m;
+                let chunk = await messages.next();
+                while (!chunk.done) {
+                    yield chunk.value;
+                    chunk = await messages.next();
                 }
-                const fullMessage = await message.next();
-                this._messages.push(
-                    getMessage({ ...fullMessage.value, ...metadata }),
-                );
+                // Get last message
+                const lastChunk = chunk;
+                if (!lastChunk.value || !lastChunk.done) {
+                    throw new Error('Missing return from gen');
+                }
+                const allMessages = lastChunk.value;
+                const m: Message[] = [];
+                for (const message of allMessages) {
+                    m.push({ ...message, ...metadata });
+                }
+                this._messages.push(...getMessages(m));
             }.call(this);
         } else {
-            this._messages.push(getMessage({ ...message, ...metadata }));
+            this._messages.push(
+                ...getMessages(
+                    (messages as Message[]).map((m) => ({ ...m, ...metadata })),
+                ),
+            );
             return this;
         }
     }
@@ -341,19 +405,17 @@ export default class ProgramState {
     gen(
         answerKey: string,
         genInput?: Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>,
-    ): (messages: Message[]) => Promise<string>;
+    ): GenAsyncFunctionReturnType;
     gen(
         answerKey: string,
         genInput?: Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
-    ): (messages: Message[]) => AsyncGenerator<string, void, unknown>;
+    ): GenAsyncGeneratorReturnType;
     gen(
         answerKey: string,
         genInput?:
             | Omit<GenerateReqNonStreamingInput, 'text' | 'input_ids'>
             | Omit<GenerateReqStreamingInput, 'text' | 'input_ids'>,
-    ):
-        | ((messages: Message[]) => Promise<string>)
-        | ((messages: Message[]) => AsyncGenerator<string, void, unknown>) {
+    ): GenAsyncFunctionReturnType | GenAsyncGeneratorReturnType {
         // If debug and there is no prompt ID then set it
         if (this._debug && !this._debug.debugPromptID) {
             this._debug.debugPromptID = ulid();
@@ -402,7 +464,7 @@ export default class ProgramState {
             ];
         }
         if (!genInput || isNonStreamingInput(genInput)) {
-            return async (messages: Message[]): Promise<string> => {
+            return async (messages: Message[]): Promise<Message> => {
                 const messagesToUse = await getTransformedMessages(messages);
                 const ans = await this._backend.gen(messagesToUse, {
                     ...genInput,
@@ -412,7 +474,12 @@ export default class ProgramState {
                     throw new Error('Multiple generations not implemented.');
                 }
                 this._answers[answerKey] = ans;
-                return ans.text;
+                return {
+                    role: 'assistant',
+                    content: ans.text,
+                    id: answerKey,
+                    genID: answerKey,
+                };
             };
         } else {
             const self = this;
@@ -427,7 +494,12 @@ export default class ProgramState {
                 let chunk: IteratorResult<GenerateRespSingle> =
                     await generator.next();
                 while (!chunk.done) {
-                    yield chunk.value.text;
+                    yield {
+                        role: 'assistant',
+                        content: chunk.value.text,
+                        id: answerKey,
+                        genID: answerKey,
+                    };
                     chunk = await generator.next();
                 }
                 // Get last message
@@ -468,98 +540,118 @@ export default class ProgramState {
         key: string,
         options: { from: 'tools'; tools: T },
     ): (ToolResponse<T> | { toolUsed: 'respondToUser'; response: string })[];
-    get(key: string, options: { from: 'messages' }): Message;
     get<Z extends z.ZodType, T extends ToolUseParams>(
         key: string,
-        options?:
-            | { from: 'zod'; schema: Z }
-            | { from: 'tools'; tools: T }
-            | { from: 'messages' },
+        options?: { from: 'zod'; schema: Z } | { from: 'tools'; tools: T },
     ):
         | string
         | z.infer<Z>
-        | Message
         | (ToolResponse<T> | { toolUsed: 'respondToUser'; response: string })[]
         | undefined {
-        if (options?.from === 'messages') {
-            return this._messages.find((m) => m.id === key);
-        } else {
-            const value = this._answers[key]?.text;
-            if (!value) {
-                // If you can't find it in the answers try in the message histroy
-                const message = this._messages.find((m) => m.id === key);
-                if (message) {
-                    return message.content;
-                } else {
-                    return undefined;
-                }
+        const value = this._answers[key]?.text;
+        if (!value) {
+            // If you can't find it in the answers try in the message history
+            // which then would have to be concat'd and returned
+            const messages = this._messages.filter((m) => m.id === key);
+            if (messages) {
+                return messages.reduce((acc, m) => acc + m.content, '');
+            } else {
+                return undefined;
             }
+        }
 
-            if (!options) {
-                return value as string;
-            }
-            if (options.from === 'zod') {
-                return options.schema.parse(JSON.parse(value));
-            }
-            if (options.from === 'tools') {
-                return JSON.parse(value) as
-                    | ToolResponse<T>
-                    | { toolUsed: 'respondToUser'; response: string };
-            }
+        if (!options) {
+            return value as string;
+        }
+        if (options.from === 'zod') {
+            return options.schema.parse(JSON.parse(value));
+        }
+        if (options.from === 'tools') {
+            return JSON.parse(value) as
+                | ToolResponse<T>
+                | { toolUsed: 'respondToUser'; response: string };
         }
     }
 
     update(
         id: string,
-        newMessage: Message,
+        newMessage: Message[],
         metadata?: { [key: string]: unknown },
         opts?: { deleteMessagesAfter?: boolean },
     ): ProgramState;
     update(
         id: string,
-        newMessage: Promise<Message>,
+        newMessage: Promise<Message[]>,
         metadata?: { [key: string]: unknown },
         opts?: { deleteMessagesAfter?: boolean },
     ): Promise<ProgramState>;
     update(
         id: string,
-        newMessage: AsyncGenerator<Message, Message, undefined>,
+        newMessage: AsyncGenerator<Message, Message[], void>,
         metadata?: { [key: string]: unknown },
         opts?: { deleteMessagesAfter?: boolean },
     ): AsyncGenerator<Message>;
     update(
         id: string,
         newMessage:
-            | Message
-            | Promise<Message>
-            | AsyncGenerator<Message, Message, undefined>,
+            | Message[]
+            | Promise<Message[]>
+            | AsyncGenerator<Message, Message[], void>,
         metadata?: { [key: string]: unknown },
         opts?: { deleteMessagesAfter?: boolean },
     ): ProgramState | Promise<ProgramState> | AsyncGenerator<Message> {
-        const messageIdx = this._messages.findIndex((m) => m.id === id);
+        const messageIdx = this._messages.findIndex(
+            (m) => m.id === id || m.genID === id,
+        );
         if (!messageIdx) {
             console.warn(`No message with id ${id}`);
             return this;
         }
-        if (opts?.deleteMessagesAfter) {
-            this._messages.splice(
-                messageIdx,
-                this._messages.length - messageIdx,
-            );
+        const messagesAfter = this._messages
+            .splice(messageIdx, this._messages.length - messageIdx)
+            .filter((m) => m.id !== id && m.genID !== id);
+        if (newMessage instanceof Promise) {
+            return (async () => {
+                const result = this.add(newMessage, { id, ...metadata });
+                if (!opts?.deleteMessagesAfter) {
+                    this._messages.push(...messagesAfter);
+                }
+                return result;
+            })();
+        } else if (Symbol.asyncIterator in newMessage) {
+            const self = this;
+            return async function* () {
+                const gen = self.add(newMessage, { id, ...metadata });
+                for await (const msg of gen) {
+                    yield msg;
+                }
+                if (!opts?.deleteMessagesAfter) {
+                    self._messages.push(...messagesAfter);
+                }
+            }.call(this);
         } else {
-            this._messages.splice(messageIdx, 1);
+            const result = this.add(newMessage, { id, ...metadata });
+            if (!opts?.deleteMessagesAfter) {
+                this._messages.push(...messagesAfter);
+            }
+            return result;
         }
-        // @ts-expect-error TS can't infer the overloaded type of `add`
-        return this.add(newMessage, metadata);
     }
 
     delete(id: string): ProgramState {
-        const messageIdx = this._messages.findIndex((m) => m.id === id);
-        if (!messageIdx) {
-            console.warn(`No message with id ${id}`);
-            return this;
+        const idExists = !!this._messages.find((m) => m.id === id);
+        if (!idExists) {
+            const genIdx = this._messages.findIndex((m) => m.genID === id);
+            if (genIdx === -1) {
+                console.warn(`No message with id ${id}`);
+                return this;
+            } else {
+                delete this._answers[this._messages[genIdx]?.genID as string];
+                this._messages.splice(genIdx, 1);
+            }
+        } else {
+            this._messages = this._messages.filter((m) => m.id !== id);
         }
-        this._messages.splice(messageIdx, 1);
         return this;
     }
 
@@ -620,10 +712,10 @@ export default class ProgramState {
     }
 }
 
-type GenAsyncFunctionReturnType = (messages: Message[]) => Promise<string>;
+type GenAsyncFunctionReturnType = (messages: Message[]) => Promise<Message>;
 type GenAsyncGeneratorReturnType = (
     messages: Message[],
-) => AsyncGenerator<string, void, unknown>;
+) => AsyncGenerator<Message, void, unknown>;
 
 function isGenAsyncFunction(
     value: unknown,
@@ -644,7 +736,7 @@ function isGenAsyncGenerator(
 
 function isAsyncMessageGenerator(
     obj: unknown,
-): obj is AsyncGenerator<Message, Message, undefined> {
+): obj is AsyncGenerator<Message, Message[], undefined> {
     if (obj === null || typeof obj !== 'object') {
         return false;
     }
