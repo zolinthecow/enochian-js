@@ -39,7 +39,6 @@ export const PromptSchema = z.object({
     type: z.string(),
     requests: z.string().transform((str) => {
         const parsed = JSON.parse(str);
-        console.log('PARSEDD', parsed);
         return z.array(PromptRequestSchema).parse(parsed);
     }),
     createdAt: z.string(),
