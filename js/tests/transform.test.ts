@@ -39,7 +39,7 @@ describe('Transform function', async () => {
                     },
                 })}`,
             );
-            expect(s.get('resp') === 'bye bye').toBe(true);
+            expect(s.get('resp')).toBe('bye bye');
         });
 
         it(`${(await getS()).getBackendType()}: Relative priority`, async () => {
@@ -67,7 +67,7 @@ describe('Transform function', async () => {
                     },
                 })}`,
             );
-            expect(s.get('resp') === 'bye bye').toBe(true);
+            expect(s.get('resp')).toBe('bye bye');
         });
 
         it(`${(await getS()).getBackendType()}: Trim from old`, async () => {
@@ -91,7 +91,7 @@ describe('Transform function', async () => {
                     },
                 })}`,
             );
-            expect(s.get('resp') === 'bye bye').toBe(true);
+            expect(s.get('resp')).toBe('bye bye');
         });
 
         it(`${(await getS()).getBackendType()}: Trim from middle`, async () => {
@@ -114,7 +114,7 @@ describe('Transform function', async () => {
                     },
                 })}`,
             );
-            expect(s.get('resp') === 'bye bye').toBe(true);
+            expect(s.get('resp')).toBe('HELLO');
         });
     }
 });

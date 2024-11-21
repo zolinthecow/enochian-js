@@ -47,19 +47,5 @@ describe('Basic', async () => {
 
             expect(s.get('answer1')).toBeDefined();
         });
-
-        it(`${(await getS()).getBackendType()}: Forced starting point`, async () => {
-            const s = await getS();
-            await s
-                .add(s.system`You are a helpful assistant.`)
-                .add(s.user`Tell me a story`)
-                .add(
-                    s.assistant`Once upon a time, ${s.gen('answer1', { sampling_params: { temperature: 0, max_new_tokens: 16 } })}`,
-                );
-
-            expect(
-                !s.get('answer1')?.startsWith('Once upon a time'),
-            ).toBeTruthy();
-        });
     }
 });

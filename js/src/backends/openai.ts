@@ -106,7 +106,7 @@ export default class OpenAIBackend implements Backend {
                 prevRole = m.role;
                 numRoles++;
             }
-            prompt += m.content + m.content.endsWith(' ') ? '' : ' ';
+            prompt += m.content + (m.content.endsWith(' ') ? '' : ' ');
         }
 
         const tokens = enc.encode(prompt);
