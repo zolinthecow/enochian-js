@@ -84,5 +84,20 @@ describe('Constrained decoding', async () => {
                 expect(schema.safeParse(profile).success).toBe(true);
             });
         }
+
+        if ((await getS()).getBackendType() !== 'OpenAI') {
+            it(`${(await getS()).getBackendType()}: choices`, async () => {
+                const s = await getS();
+
+                await s
+                    .add(s.system`You are an animal.`)
+                    .add(s.user`What are you?`)
+                    .add(
+                        s.assistant`I am a ${s.gen('answer', { choices: ['hippopotamus', 'giraffe'] })}`,
+                    );
+
+                expect(s.get('answer')).toBe('giraffe');
+            });
+        }
     }
 });

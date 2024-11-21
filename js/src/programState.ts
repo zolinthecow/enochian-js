@@ -664,5 +664,6 @@ type ToolResponse<T extends ToolUseParams> = {
     [K in keyof T]: {
         toolUsed: T[K]['name'];
         response: Awaited<ReturnType<T[K]['function']>>;
+        error?: string;
     };
 }[number];
