@@ -118,7 +118,7 @@ export default class ProgramState {
             | AsyncGenerator<Message, Message[], void> {
             if (values.some((v) => isGenAsyncGenerator(v))) {
                 return async function* (this: ProgramState) {
-                    const chunks = this._processRoleStringTemplate(
+                    const generator = this._processRoleStringTemplate(
                         role,
                         strings,
                         ...(values as (
@@ -128,11 +128,17 @@ export default class ProgramState {
                             | Stringifiable
                         )[]),
                     );
-                    for await (const chunk of chunks) {
-                        yield chunk;
+                    let chunk = await generator.next();
+                    while (!chunk.done) {
+                        yield chunk.value;
+                        chunk = await generator.next();
                     }
-                    const lastChunk = (await chunks.next()).value as Message[];
-                    return lastChunk;
+                    // Get last message
+                    const lastChunk = chunk;
+                    if (!lastChunk.value || !lastChunk.done) {
+                        throw new Error('Missing return from gen');
+                    }
+                    return lastChunk.value;
                 }.call(this);
             } else if (
                 values.some(
@@ -369,10 +375,17 @@ export default class ProgramState {
             })();
         } else if (isAsyncMessageGenerator(messages)) {
             return async function* (this: ProgramState) {
-                for await (const m of messages) {
-                    yield m;
+                let chunk = await messages.next();
+                while (!chunk.done) {
+                    yield chunk.value;
+                    chunk = await messages.next();
                 }
-                const allMessages = (await messages.next()).value as Message[];
+                // Get last message
+                const lastChunk = chunk;
+                if (!lastChunk.value || !lastChunk.done) {
+                    throw new Error('Missing return from gen');
+                }
+                const allMessages = lastChunk.value;
                 const m: Message[] = [];
                 for (const message of allMessages) {
                     m.push({ ...message, ...metadata });
@@ -615,8 +628,6 @@ export default class ProgramState {
                 if (!opts?.deleteMessagesAfter) {
                     self._messages.push(...messagesAfter);
                 }
-                const lastChunk = (await gen.next()).value as Message[];
-                return lastChunk;
             }.call(this);
         } else {
             const result = this.add(newMessage, { id, ...metadata });

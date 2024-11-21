@@ -49,7 +49,7 @@ describe('Control flow', async () => {
                     s.assistant`${s.gen('story', { sampling_params: { max_new_tokens: 24 } })}`,
                     { id: 'd' },
                 );
-            expect(s.get('b')).toBeUndefined();
+            expect(s.get('b')).toBeDefined();
             expect(s.get('d')).toBeDefined();
         });
 
@@ -67,7 +67,7 @@ describe('Control flow', async () => {
             await s.update('joke', s.assistant`${s.gen('joke')}`, undefined, {
                 deleteMessagesAfter: true,
             });
-            expect(s.get('joke')).toBeUndefined();
+            expect(s.get('joke')).toBeDefined();
             expect(oldJoke !== s.get('joke')).toBeTruthy();
         });
     }
