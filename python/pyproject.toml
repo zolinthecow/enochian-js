@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "enochian"
+version = "0.0.1.a0"
+description = "Python wrapper for enochian-studio npm package"
+requires-python = ">=3.8"
+authors = [
+    { name = "Colin Zhao", email = "colinzhao777@gmail.com" }
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "pydantic"
+]
+
+[project.urls]
+Homepage = "https://zolinthecow.mintlify.app"
+Repository = "https://github.com/zolinthecow/enochian-js/tree/master/python"
+
+[tool.hatch.build.targets.wheel]
+packages = ["enochian"]
