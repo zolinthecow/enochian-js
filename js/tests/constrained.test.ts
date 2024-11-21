@@ -4,8 +4,9 @@ import { getPSSweep } from './utils.js';
 
 describe('Constrained decoding', async () => {
     const psSweep = await getPSSweep();
-    for (const s of psSweep) {
-        it(`${s.getBackendType()}: basic schema`, async () => {
+    for (const getS of psSweep) {
+        it(`${(await getS()).getBackendType()}: basic schema`, async () => {
+            const s = await getS();
             const Step = z.object({
                 explanation: z.string(),
                 output: z.string(),
@@ -27,8 +28,9 @@ describe('Constrained decoding', async () => {
             expect(MathResponse.safeParse(resp).success).toBe(true);
         });
 
-        if (s.getBackendType() !== 'OpenAI') {
-            it(`${s.getBackendType()}: union schema`, async () => {
+        if ((await getS()).getBackendType() !== 'OpenAI') {
+            const s = await getS();
+            it(`${(await getS()).getBackendType()}: union schema`, async () => {
                 const schema = z.discriminatedUnion('location', [
                     z.object({
                         location: z.literal('Boston'),
@@ -51,8 +53,9 @@ describe('Constrained decoding', async () => {
             });
         }
 
-        if (s.getBackendType() !== 'OpenAI') {
-            it(`${s.getBackendType()}: advanced schema`, async () => {
+        if ((await getS()).getBackendType() !== 'OpenAI') {
+            const s = await getS();
+            it(`${(await getS()).getBackendType()}: advanced schema`, async () => {
                 const schema = z.object({
                     id: z.string().uuid(),
                     name: z.string().min(2).max(50),

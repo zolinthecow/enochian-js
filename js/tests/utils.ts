@@ -6,7 +6,7 @@ const url = `http://${IP}:${port}`;
 
 export async function getPSSweep() {
     return [
-        await new ProgramState().fromSGL(url),
-        new ProgramState().fromOpenAI({ modelName: 'gpt-4o-mini' }),
+        async () => await new ProgramState().fromSGL(url),
+        async () => new ProgramState().fromOpenAI({ modelName: 'gpt-4o-mini' }),
     ];
 }
