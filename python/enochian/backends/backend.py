@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Iterator, Dict, List, Union, Optional
+from typing import Dict, Iterator, List, Optional, Union
 
-from enochian.api import GenerateRespSingle, Message, GenerateReqInput
+from enochian.api import GenerateReqInput, GenerateRespSingle, Message
 
 
 class Backend(ABC):

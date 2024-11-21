@@ -1,13 +1,14 @@
-import os
-import time
 import errno
-import subprocess
+import os
 import platform
 import shutil
-from pathlib import Path
-import urllib.request
+import subprocess
 import tarfile
+import time
+import urllib.request
 import zipfile
+from pathlib import Path
+
 
 class FileLock:
     def __init__(self, lock_file):
@@ -19,7 +20,9 @@ class FileLock:
         while True:
             try:
                 # Try to create the lockfile exclusively
-                self.fd = os.open(str(self.lock_file), os.O_CREAT | os.O_EXCL | os.O_RDWR)
+                self.fd = os.open(
+                    str(self.lock_file), os.O_CREAT | os.O_EXCL | os.O_RDWR
+                )
                 # Lock was successfully acquired
                 break
             except OSError as e:
@@ -44,6 +47,7 @@ class FileLock:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.release()
+
 
 class NodeRunner:
     def __init__(self, node_version="22.9.0"):
@@ -77,19 +81,19 @@ class NodeRunner:
         bin_dir = str(self._get_bin_dir())
 
         # Get the path separator based on the system
-        path_sep = ';' if platform.system().lower() == 'windows' else ':'
+        path_sep = ";" if platform.system().lower() == "windows" else ":"
 
         # Add bin_dir to the beginning of PATH
-        if 'PATH' in env:
-            env['PATH'] = f"{bin_dir}{path_sep}{env['PATH']}"
+        if "PATH" in env:
+            env["PATH"] = f"{bin_dir}{path_sep}{env['PATH']}"
         else:
-            env['PATH'] = bin_dir
+            env["PATH"] = bin_dir
 
         return env
 
     def _download_node(self):
         system = platform.system().lower()
-        arch = "x64" if platform.machine().endswith('64') else "x86"
+        arch = "x64" if platform.machine().endswith("64") else "x86"
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
         # Create a lock file in the base directory
@@ -118,10 +122,10 @@ class NodeRunner:
                 urllib.request.urlretrieve(url, downloaded_file)
 
                 if system == "windows":
-                    with zipfile.ZipFile(downloaded_file, 'r') as zip_ref:
+                    with zipfile.ZipFile(downloaded_file, "r") as zip_ref:
                         zip_ref.extractall(self.base_dir)
                 else:
-                    with tarfile.open(downloaded_file, 'r:gz') as tar_ref:
+                    with tarfile.open(downloaded_file, "r:gz") as tar_ref:
                         tar_ref.extractall(self.base_dir)
 
                 if system == "windows":
@@ -147,31 +151,17 @@ class NodeRunner:
             final_env.update(env)
 
         cmd = [str(self.node_binary), str(script_path)] + list(args)
-        result = subprocess.run(
-            cmd,
-            text=True,
-            env=final_env
-        )
+        result = subprocess.run(cmd, text=True, env=final_env)
 
     def run_code(self, code):
         self.ensure_node_installed()
 
-        cmd = [str(self.node_binary), '-e', code]
-        result = subprocess.run(
-            cmd,
-            text=True,
-            env=self._get_enhanced_env()
-        )
+        cmd = [str(self.node_binary), "-e", code]
+        result = subprocess.run(cmd, text=True, env=self._get_enhanced_env())
 
     def npm(self, *args, cwd=None):
         """Run an npm command with provided arguments"""
         self.ensure_node_installed()
 
-
         cmd = [str(self.npm_binary)] + list(args)
-        result = subprocess.run(
-            cmd,
-            text=True,
-            cwd=cwd,
-            env=self._get_enhanced_env()
-        )
+        result = subprocess.run(cmd, text=True, cwd=cwd, env=self._get_enhanced_env())

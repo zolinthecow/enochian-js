@@ -1,7 +1,8 @@
+import logging
 import os
 import subprocess
-import logging
 from pathlib import Path
+
 from .node_runner import NodeRunner
 
 logger = logging.getLogger(__name__)

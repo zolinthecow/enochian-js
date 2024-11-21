@@ -26,6 +26,9 @@ dependencies = [
     "pydantic"
 ]
 
+[project.optional-dependencies]
+dev = ["pytest", "pre-commit", "black", "isort"]
+
 [project.urls]
 Homepage = "https://zolinthecow.mintlify.app"
 Repository = "https://github.com/zolinthecow/enochian-js/tree/master/python"
