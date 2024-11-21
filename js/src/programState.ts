@@ -63,6 +63,13 @@ export default class ProgramState {
         });
         return this;
     }
+    getBackendType(): 'OpenAI' | 'SGL' {
+        if (this._backend instanceof OpenAIBackend) {
+            return 'OpenAI';
+        } else {
+            return 'SGL';
+        }
+    }
 
     private _createRoleFunction(role: 'user' | 'assistant' | 'system') {
         function roleFunction(
@@ -657,5 +664,6 @@ type ToolResponse<T extends ToolUseParams> = {
     [K in keyof T]: {
         toolUsed: T[K]['name'];
         response: Awaited<ReturnType<T[K]['function']>>;
+        error?: string;
     };
 }[number];
