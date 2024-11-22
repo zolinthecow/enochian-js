@@ -6,3 +6,5 @@ node_modules/
 !.vscode/settings.json
 .zed/**
 !.zed/settings.json
+
+.ruff_cache

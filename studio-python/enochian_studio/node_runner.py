@@ -151,17 +151,17 @@ class NodeRunner:
             final_env.update(env)
 
         cmd = [str(self.node_binary), str(script_path)] + list(args)
-        result = subprocess.run(cmd, text=True, env=final_env)
+        subprocess.run(cmd, text=True, env=final_env)
 
     def run_code(self, code):
         self.ensure_node_installed()
 
         cmd = [str(self.node_binary), "-e", code]
-        result = subprocess.run(cmd, text=True, env=self._get_enhanced_env())
+        subprocess.run(cmd, text=True, env=self._get_enhanced_env())
 
     def npm(self, *args, cwd=None):
         """Run an npm command with provided arguments"""
         self.ensure_node_installed()
 
         cmd = [str(self.npm_binary)] + list(args)
-        result = subprocess.run(cmd, text=True, cwd=cwd, env=self._get_enhanced_env())
+        subprocess.run(cmd, text=True, cwd=cwd, env=self._get_enhanced_env())

@@ -1,7 +1,9 @@
 default_language_version:
-    python: python3.9
+    python: python3.10
 
 default_stages: [pre-commit, pre-push, manual]
+
+exclude: "sglang"
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -21,14 +23,22 @@ repos:
       - id: detect-private-key
       - id: debug-statements
       - id: no-commit-to-branch
-  - repo: https://github.com/PyCQA/isort
-    rev: 5.13.2
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.4
     hooks:
-      - id: isort
-  - repo: https://github.com/psf/black
-    rev: 24.10.0
-    hooks:
-      - id: black
+      - id: ruff
         types: [python]
-      - id: black-jupyter
-        types: [jupyter]
+      - id: ruff-format
+        types: [python]
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.389
+    hooks:
+      - id: pyright
+        types: ['python']
+  - repo: local
+    hooks:
+      - id: local-biome-check
+        name: biome check
+        entry: biome check --write --no-errors-on-unmatched
+        language: system
+        files: "\\.(js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc)"

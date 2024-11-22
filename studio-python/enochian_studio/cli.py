@@ -93,7 +93,9 @@ def start_server(port: int = 56765) -> ServerProcess:
             )
         else:
             process = subprocess.Popen(
-                cmd, env=env, preexec_fn=os.setsid  # Create new process group
+                cmd,
+                env=env,
+                preexec_fn=os.setsid,  # Create new process group
             )
 
         logger.info(f"Server started on port {port} with PID {process.pid}")
