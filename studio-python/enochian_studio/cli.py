@@ -1,10 +1,11 @@
-import os
-import sys
-import logging
 import argparse
+import logging
+import os
 import signal
-from pathlib import Path
 import subprocess
+import sys
+from pathlib import Path
+
 from .installer import install_npm_dependencies
 from .node_runner import NodeRunner
 
@@ -92,7 +93,9 @@ def start_server(port: int = 56765) -> ServerProcess:
             )
         else:
             process = subprocess.Popen(
-                cmd, env=env, preexec_fn=os.setsid  # Create new process group
+                cmd,
+                env=env,
+                preexec_fn=os.setsid,  # Create new process group
             )
 
         logger.info(f"Server started on port {port} with PID {process.pid}")

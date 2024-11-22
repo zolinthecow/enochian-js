@@ -28,9 +28,21 @@ jobs:
         with:
           package_json_file: "package.json"
 
+      - name: Setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
       - name: Install dependencies
         run: |
           pnpm install
+          pushd python
+          pip install ".[dev]"
+          popd
+          pushd studio-python
+          pip install ".[dev]"
+          popd
+          pip install pre-commit
 
       - name: run CI
         env:
@@ -47,4 +59,10 @@ jobs:
           popd
           pushd docs
           pnpm run ci
+          popd
+          pushd python
+          ./.ci.sh
+          popd
+          pushd studio-python
+          ./.ci.sh
           popd
