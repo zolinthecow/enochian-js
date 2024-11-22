@@ -24,7 +24,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pre-commit", "black", "isort", "ruff", "mypy", "build", "twine"]
+dev = ["pytest", "pre-commit", "ruff", "pyright", "build", "twine"]
 
 [project.scripts]
 enochian-studio = "enochian_studio.cli:main"
@@ -38,3 +38,19 @@ packages = ["enochian_studio"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "enochian_studio/package.json" = "enochian_studio/package.json"
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]

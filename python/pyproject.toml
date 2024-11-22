@@ -27,7 +27,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pre-commit", "black", "isort"]
+dev = ["pytest", "ruff", "pyright", "build", "twine"]
 
 [project.urls]
 Homepage = "https://zolinthecow.mintlify.app"
@@ -35,3 +35,19 @@ Repository = "https://github.com/zolinthecow/enochian-js/tree/master/python"
 
 [tool.hatch.build.targets.wheel]
 packages = ["enochian"]
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]

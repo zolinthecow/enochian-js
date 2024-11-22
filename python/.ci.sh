@@ -2,8 +2,9 @@
 
 set -e
 
-echo "Running pre-commit..."
-pre-commit run --files ./**
+echo "Running formatting and linting..."
+ruff check .
+ruff format .
 
 echo "Running tests..."
 pytest
